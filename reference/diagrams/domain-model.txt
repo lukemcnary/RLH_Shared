@@ -1,0 +1,87 @@
+graph LR
+  TRADE_TYPES["Trade Types"]
+  CAPABILITIES["Capabilities"]
+  COST_CODES["Cost Codes"]
+  KNOWLEDGE["Knowledge Entries"]
+  EXPECTATIONS["Expectations"]
+  COMPANIES["Companies"]
+  COMPANY_TYPES["Company Types"]
+  CONTACTS["Contacts"]
+  CONTACT_ROLES["Contact Roles"]
+  PROJECT_CONTACTS["Project Contacts"]
+  CLIENTS["Clients / Leads"]
+
+  PROJECTS["Projects"]
+  SPACES["Spaces"]
+  SCOPE_DETAILS["Scope Details"]
+  SCOPE_ITEMS["Project Scope"]
+  COST_ITEMS["Cost Items"]
+  SELECTIONS["Selections"]
+  BID_PACKAGES["Bid Packages"]
+  QUOTES["Quotes"]
+  MOBILIZATIONS["Mobilizations"]
+  TASKS["Action Items"]
+  CHANGE_ORDERS["Change Orders"]
+  RFIS["RFIs"]
+  FILES["Files"]
+  FILE_LINKS["File Links"]
+  PROJECT_EXPECTATIONS["Project Expectations"]
+
+  CAPABILITIES --> TRADE_TYPES
+  COMPANIES -. "have type" .-> COMPANY_TYPES
+  COMPANIES -. "offer" .-> TRADE_TYPES
+  COMPANIES -. "offer" .-> CAPABILITIES
+  COMPANIES --> CONTACTS
+  CONTACTS -. "may have" .-> CONTACT_ROLES
+  PROJECTS --> PROJECT_CONTACTS
+  PROJECT_CONTACTS --> CONTACTS
+  CLIENTS -. "may become" .-> PROJECTS
+  KNOWLEDGE -. "can be scoped to" .-> PROJECTS
+
+  PROJECTS --> SPACES
+  PROJECTS --> SCOPE_DETAILS
+  PROJECTS --> SCOPE_ITEMS
+  PROJECTS --> COST_ITEMS
+  PROJECTS --> SELECTIONS
+  PROJECTS --> BID_PACKAGES
+  PROJECTS --> QUOTES
+  PROJECTS --> MOBILIZATIONS
+  PROJECTS --> TASKS
+  PROJECTS --> CHANGE_ORDERS
+  PROJECTS --> RFIS
+  PROJECTS --> FILES
+  PROJECTS --> PROJECT_EXPECTATIONS
+
+  SCOPE_DETAILS -. "may link to" .-> SPACES
+  SCOPE_DETAILS --> SCOPE_ITEMS
+  SCOPE_ITEMS --> TRADE_TYPES
+  SCOPE_ITEMS -. "may apply to" .-> SPACES
+  SCOPE_ITEMS -. "may produce" .-> COST_ITEMS
+  SCOPE_ITEMS -. "can seed" .-> TASKS
+  COST_ITEMS --> COST_CODES
+  COST_ITEMS --> TRADE_TYPES
+  COST_ITEMS -. "may apply to" .-> SPACES
+  SELECTIONS -. "may affect" .-> COST_ITEMS
+  SELECTIONS -. "may apply to" .-> SPACES
+  BID_PACKAGES --> TRADE_TYPES
+  BID_PACKAGES --> QUOTES
+  BID_PACKAGES -. "group" .-> SCOPE_ITEMS
+  BID_PACKAGES -. "may price" .-> COST_ITEMS
+  QUOTES --> COMPANIES
+  QUOTES -. "may price" .-> COST_ITEMS
+  MOBILIZATIONS --> TRADE_TYPES
+  MOBILIZATIONS --> TASKS
+  MOBILIZATIONS -. "may assign" .-> COMPANIES
+  TASKS --> TRADE_TYPES
+  TASKS -. "may link" .-> SCOPE_ITEMS
+  TASKS -. "may link" .-> COST_ITEMS
+  FILES --> FILE_LINKS
+  PROJECT_EXPECTATIONS --> EXPECTATIONS
+
+  classDef shared fill:#fff7dd,stroke:#d7bc60,color:#433400;
+  classDef people fill:#f5f0ff,stroke:#b8a0d9,color:#33224d;
+  classDef project fill:#eef4ff,stroke:#8fa9d9,color:#1f2d3d;
+
+  class TRADE_TYPES,CAPABILITIES,COST_CODES,KNOWLEDGE,EXPECTATIONS,CLIENTS shared;
+  class COMPANIES,COMPANY_TYPES,CONTACTS,CONTACT_ROLES,PROJECT_CONTACTS people;
+  class PROJECTS,SPACES,SCOPE_DETAILS,SCOPE_ITEMS,COST_ITEMS,SELECTIONS,BID_PACKAGES,QUOTES,MOBILIZATIONS,TASKS,CHANGE_ORDERS,RFIS,FILES,FILE_LINKS,PROJECT_EXPECTATIONS project;

@@ -1,0 +1,15 @@
+graph LR
+  PROJECTS["Projects"] --> SPACES["Spaces"]
+  PROJECTS --> SCOPE_DETAILS["Scope Details"]
+  SCOPE_DETAILS --> SCOPE_ITEMS["Project Scope"]
+  SCOPE_ITEMS -. "may produce" .-> COST_ITEMS["Cost Items"]
+  SELECTIONS["Selections"] -. "may affect" .-> COST_ITEMS
+  SCOPE_ITEMS -. "grouped in" .-> BID_PACKAGES["Bid Packages"]
+  BID_PACKAGES --> QUOTES["Quotes"]
+  PROJECTS --> MOBILIZATIONS["Mobilizations"]
+  SCOPE_ITEMS -. "can seed" .-> TASKS["Action Items"]
+  MOBILIZATIONS --> TASKS
+  PROJECTS --> FILES["Files"]
+  FILES --> FILE_LINKS["File Links"]
+  PROJECTS --> PROJECT_EXPECTATIONS["Project Expectations"]
+  PROJECT_EXPECTATIONS --> EXPECTATIONS["Expectations"]

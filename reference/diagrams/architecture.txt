@@ -1,0 +1,45 @@
+graph TB
+  subgraph BROWSER["Browser"]
+    CB_SEQ["sequencer-board.tsx"]
+    CB_DEV["project feature views"]
+    CB_OTHER["other feature views"]
+  end
+
+  subgraph NEXTJS["Next.js Server"]
+    SC["Server Components - thin data fetch"]
+    SA["Server Actions - mutations + revalidatePath"]
+    ADAPTER["adapter.ts - public import point"]
+    DV_QUERIES["lib/dataverse/queries/ - domain normalization"]
+    DV_CLIENT["lib/dataverse/client.ts - Azure auth + dvFetch"]
+    SP_CLIENT["lib/sharepoint/ - Graph auth + file orchestration"]
+    SC --> ADAPTER
+    ADAPTER --> DV_QUERIES
+    DV_QUERIES --> DV_CLIENT
+    ADAPTER --> SP_CLIENT
+    SA --> DV_CLIENT
+    SA --> SP_CLIENT
+  end
+
+  subgraph MICROSOFT["Microsoft Platform"]
+    subgraph DATAVERSE["Dataverse - business records"]
+      DV_TARGET["Target shared tables<br/>Planning/commercial: rlh_spaces, rlh_scopedetails, rlh_scopeitems, rlh_costitems, rlh_selections, rlh_bidpackages, rlh_quotes<br/>Execution/admin: rlh_tasks, rlh_changeorders, rlh_rfis, rlh_files, rlh_filelinks, rlh_projectexpectations<br/>Org + shared vocab: rlh_knowledgeentries, rlh_expectations, rlh_capabilities, rlh_costcodes, rlh_clients<br/>Company/contact/project relationship tables: rlh_companytypes, rlh_contactroles, rlh_projectcontacts, rlh_company_companytypes, rlh_company_tradetypes, rlh_company_capabilities<br/>+ scope/cost/bidding/selection junction tables"]
+      DV_EXTENDED["Extended existing tables<br/>cr6cd_projects<br/>cr6cd_mobilizations<br/>cr6cd_trades<br/>accounts<br/>contacts"]
+      DV_COMPAT["Compatibility surfaces<br/>cr6cd_buildphases, cr6cd_gatedeclarationsjson<br/>cr6cd_stepsjson, cr6cd_markersjson<br/>cr6cd_mobilizationmarkerses<br/>rlh_projecttrades, rlh_tradescopes<br/>rlh_tradeitems, rlh_tradetemplates"]
+    end
+    SHAREPOINT["SharePoint - file bytes + library metadata"]
+    ENTRA["Microsoft Entra ID<br/>identity + permission intent"]
+  end
+
+  subgraph TREVOR_APP["Trevor App - Peer"]
+    TREVOR["Current Trevor execution app"]
+  end
+
+  BROWSER -- "props down" --> SC
+  BROWSER -- "mutations up" --> SA
+  BROWSER -. "user sign-in" .-> ENTRA
+  DV_CLIENT -- "OData REST API" --> DATAVERSE
+  SP_CLIENT -- "Microsoft Graph / SharePoint APIs" --> SHAREPOINT
+  TREVOR -- "OData REST API" --> DATAVERSE
+  ENTRA -. "server-side auth + permission context" .-> DV_CLIENT
+  ENTRA -. "server-side auth + permission context" .-> SP_CLIENT
+  DATAVERSE -. "file metadata + record links" .-> SHAREPOINT

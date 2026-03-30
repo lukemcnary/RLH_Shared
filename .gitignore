@@ -1,0 +1,14 @@
+.DS_Store
+.internal/
+
+# App-generated files
+app/.next/
+app/node_modules/
+app/*.tsbuildinfo
+app/next-env.d.ts
+
+# Local env files
+app/.env.local
+app/.env.development.local
+app/.env.production.local
+app/.env.test.local
