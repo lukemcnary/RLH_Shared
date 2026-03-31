@@ -56,5 +56,5 @@ export async function createProjectFromLeadAction(clientId: string, formData: Fo
   })
   revalidatePath('/leads')
   revalidatePath('/projects')
-  redirect(`/projects/${projectId}/budget`)
+  redirect(`/projects/${projectId}`)
 }

@@ -28,7 +28,7 @@ export async function createProjectAction(formData: FormData) {
     m.MOCK_PROJECTS.push(newProject)
     await createDefaultGates(newProject.id)
     revalidatePath('/projects')
-    redirect(`/projects/${newProject.id}/budget`)
+    redirect(`/projects/${newProject.id}`)
   }
 
   throw new Error('Not implemented for Dataverse')
