@@ -346,6 +346,7 @@ export interface DvMobilization {
   rlh_why?: string
   cr6cd_startoffset?: number
   cr6cd_durationdays?: number
+  cr6cd_displayorder?: number
   cr6cd_stepsjson?: string | unknown[]
   cr6cd_markersjson?: string | unknown[]
   rlh_status?: number
@@ -519,6 +520,7 @@ export function toMobilization(
     status: MOBILIZATION_STATUS_MAP[dv.rlh_status ?? 936880000] ?? 'draft',
     startOffset: dv.cr6cd_startoffset ?? 0,
     duration: dv.cr6cd_durationdays ?? 5,
+    displayOrder: dv.cr6cd_displayorder,
     steps: normalizedSteps,
     markers: normalizedMarkers,
   }

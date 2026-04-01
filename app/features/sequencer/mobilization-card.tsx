@@ -9,17 +9,18 @@ import type { SequenceMobilizationProjection } from '@/types/database'
 
 interface MobilizationCardProps {
   mobilization: SequenceMobilizationProjection
-  lane: number
+  row: number
+  rowHeight: number
   pxPerDay: number
+  timelineLeadDays?: number
   projectStartDate: string
   mobNumber: string
   labelTopPad: number
   onClick: () => void
-  onUpdateTimeline: (timeline: { startOffset: number; duration: number }) => void
+  onUpdateTimeline: (timeline: { startOffset: number; duration: number; displayOrder: number }) => void
 }
 
-const LANE_H      = 66
-const BAR_H       = 28
+const BAR_H       = 14
 const MIN_DUR     = 1
 const DRAG_THRESH = 4
 
@@ -27,8 +28,10 @@ type DragType = 'move' | 'resize-left' | 'resize-right' | null
 
 export function MobilizationCard({
   mobilization: mob,
-  lane,
+  row,
+  rowHeight,
   pxPerDay,
+  timelineLeadDays = 0,
   projectStartDate,
   mobNumber,
   labelTopPad,
@@ -40,18 +43,22 @@ export function MobilizationCard({
   const dragState = useRef<{
     type: DragType
     startX: number
+    startY: number
     startOffset: number
     startDuration: number
+    startDisplayOrder: number
+    startRenderedRow: number
     moved: boolean
   } | null>(null)
   const [isDragging, setIsDragging] = useState(false)
-  const [preview, setPreview] = useState<{ startOffset: number; duration: number } | null>(null)
+  const [preview, setPreview] = useState<{ startOffset: number; duration: number; displayOrder: number } | null>(null)
 
   const displayStart    = preview?.startOffset ?? mob.resolvedStartOffset
   const displayDuration = preview?.duration    ?? mob.projectedDuration
+  const displayRow      = preview?.displayOrder ?? row
 
-  const left     = displayStart * pxPerDay
-  const top      = labelTopPad + lane * LANE_H
+  const left     = (displayStart + timelineLeadDays) * pxPerDay
+  const top      = labelTopPad + displayRow * rowHeight
   const barWidth = Math.max(MIN_DUR * pxPerDay, displayDuration * pxPerDay)
 
   const tradeColor = mob.tradeType.color ?? 'var(--accent)'
@@ -65,29 +72,49 @@ export function MobilizationCard({
     dragState.current = {
       type,
       startX: e.clientX,
+      startY: e.clientY,
       startOffset: mob.resolvedStartOffset,
       startDuration: mob.projectedDuration,
+      startDisplayOrder: mob.displayOrder ?? row,
+      startRenderedRow: row,
       moved: false,
     }
     outerRef.current?.setPointerCapture(e.pointerId)
     document.body.classList.add('sequencer-no-select')
-  }, [mob.projectedDuration, mob.resolvedStartOffset])
+  }, [mob.displayOrder, mob.projectedDuration, mob.resolvedStartOffset, row])
 
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
     const ds = dragState.current
     if (!ds) return
     const dx = e.clientX - ds.startX
+    const dy = e.clientY - ds.startY
     const delta = Math.round(dx / pxPerDay)
-    if (!ds.moved && Math.abs(dx) > DRAG_THRESH) { ds.moved = true; setIsDragging(true) }
+    const rowDelta = Math.round(dy / rowHeight)
+    const nextDisplayOrder = rowDelta === 0
+      ? ds.startDisplayOrder
+      : Math.max(0, ds.startRenderedRow + rowDelta)
+    if (!ds.moved && Math.max(Math.abs(dx), Math.abs(dy)) > DRAG_THRESH) { ds.moved = true; setIsDragging(true) }
     if (!ds.moved) return
     if (ds.type === 'move') {
-      setPreview({ startOffset: Math.max(0, ds.startOffset + delta), duration: ds.startDuration })
+      setPreview({
+        startOffset: Math.max(0, ds.startOffset + delta),
+        duration: ds.startDuration,
+        displayOrder: nextDisplayOrder,
+      })
     } else if (ds.type === 'resize-right') {
-      setPreview({ startOffset: ds.startOffset, duration: Math.max(MIN_DUR, ds.startDuration + delta) })
+      setPreview({
+        startOffset: ds.startOffset,
+        duration: Math.max(MIN_DUR, ds.startDuration + delta),
+        displayOrder: ds.startDisplayOrder,
+      })
     } else if (ds.type === 'resize-left') {
-      setPreview({ startOffset: Math.max(0, ds.startOffset + delta), duration: Math.max(MIN_DUR, ds.startDuration - delta) })
+      setPreview({
+        startOffset: Math.max(0, ds.startOffset + delta),
+        duration: Math.max(MIN_DUR, ds.startDuration - delta),
+        displayOrder: ds.startDisplayOrder,
+      })
     }
-  }, [pxPerDay])
+  }, [pxPerDay, rowHeight])
 
   const handlePointerUp = useCallback((e: React.PointerEvent) => {
     const ds = dragState.current
@@ -95,7 +122,11 @@ export function MobilizationCard({
     document.body.classList.remove('sequencer-no-select')
     outerRef.current?.releasePointerCapture(e.pointerId)
     if (ds.moved && preview) {
-      onUpdateTimeline({ startOffset: preview.startOffset, duration: preview.duration })
+      onUpdateTimeline({
+        startOffset: preview.startOffset,
+        duration: preview.duration,
+        displayOrder: preview.displayOrder,
+      })
     } else if (!ds.moved) {
       onClick()
     }
@@ -115,10 +146,6 @@ export function MobilizationCard({
     <div
       ref={outerRef}
       className="mob-card"
-      onPointerDown={e => {
-        if ((e.target as HTMLElement).dataset.handle) return
-        startDrag(e, 'move')
-      }}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handleCancel}
@@ -135,6 +162,10 @@ export function MobilizationCard({
     >
       {/* Label block — floats above the duration bar */}
       <div
+        onClick={(event) => {
+          event.stopPropagation()
+          onClick()
+        }}
         style={{
           position: 'absolute',
           left: 0,
@@ -146,8 +177,9 @@ export function MobilizationCard({
           borderRadius: 8,
           boxShadow: isDragging ? 'var(--shadow-lg)' : 'var(--shadow-float)',
           padding: '8px 10px',
-          pointerEvents: 'none',
+          pointerEvents: 'auto',
           overflow: 'hidden',
+          cursor: 'pointer',
         }}
       >
         {/* Trade name + meta pills */}
@@ -203,9 +235,8 @@ export function MobilizationCard({
             color: 'var(--text-secondary)',
             lineHeight: 1.4,
             overflow: 'hidden',
-            display: '-webkit-box',
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: 'vertical',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
           }}>
             {mob.why}
           </div>
@@ -214,6 +245,10 @@ export function MobilizationCard({
 
       {/* Duration bar */}
       <div
+        onPointerDown={e => {
+          if ((e.target as HTMLElement).dataset.handle) return
+          startDrag(e, 'move')
+        }}
         style={{
           position: 'absolute',
           left: 0, top: 0,
@@ -225,26 +260,19 @@ export function MobilizationCard({
           overflow: 'visible',
         }}
       >
-        {/* Left color accent strip */}
-        <div style={{
-          position: 'absolute', left: 0, top: 0, bottom: 0,
-          width: 3, borderRadius: '4px 0 0 4px',
-          background: tradeColor, opacity: 0.85,
-        }} />
-
-        {/* Marker dots */}
+        {/* Marker lines */}
         {mob.markers.map(marker => (
           <div
             key={marker.id}
             title={marker.label}
             style={{
               position: 'absolute',
-              left: `calc(${marker.position * 100}% - 3px)`,
-              top: '50%', transform: 'translateY(-50%)',
-              width: 6, height: 6,
-              borderRadius: '50%',
+              left: `calc(${marker.position * 100}% - 1px)`,
+              top: -4,
+              width: 2,
+              height: BAR_H + 8,
+              borderRadius: 999,
               background: 'var(--yellow)',
-              border: '1px solid rgba(255,255,255,.8)',
               zIndex: 3,
             }}
           />

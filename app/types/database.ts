@@ -537,6 +537,12 @@ export interface Mobilization {
   duration: number
 
   /**
+   * Preferred visual row for the sequencer timeline.
+   * Dataverse compatibility field: cr6cd_displayorder
+   */
+  displayOrder?: number
+
+  /**
    * Compatibility step list used by the current modal/edit bridge.
    * Sequencing logic does not treat this as authoritative; runtime
    * steps are derived from tradeScopes in the projector.
@@ -874,6 +880,7 @@ export interface CreateMobilizationPayload {
   why: string
   startOffset: number
   duration: number
+  displayOrder?: number
   steps?: Omit<TradeItem, 'mobilizationId'>[]
   markers?: Omit<MobilizationMarker, 'mobilizationId'>[]
 }
@@ -885,6 +892,7 @@ export interface UpdateMobilizationPayload {
   why?: string
   startOffset?: number
   duration?: number
+  displayOrder?: number
   status?: MobilizationStatus
   steps?: Omit<TradeItem, 'mobilizationId'>[]
   markers?: Omit<MobilizationMarker, 'mobilizationId'>[]
@@ -1024,9 +1032,9 @@ export interface CreateQuotePayload {
 // ─── 9. UI-only types (never persisted) ──────────────────────
 
 export interface SequencerUIState {
-  mode: 'sequencing' | 'trades'
+  mode: 'project' | 'sequencing' | 'storyline' | 'trades'
   selectedMobilizationId: string | null
-  collapsedGates: Record<string, boolean>
+  activeGateId: string | null
   pxPerDay: number
   horizonDays: number
 }

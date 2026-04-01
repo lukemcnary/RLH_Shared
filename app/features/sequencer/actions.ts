@@ -96,6 +96,7 @@ function buildMobilizationPayload(
     why?: string
     startOffset?: number
     duration?: number
+    displayOrder?: number
     steps?: CreateMobilizationPayload['steps']
     markers?: CreateMobilizationPayload['markers']
   },
@@ -105,6 +106,7 @@ function buildMobilizationPayload(
   if (payload.why !== undefined) body.cr6cd_why = payload.why
   if (payload.startOffset !== undefined) body.cr6cd_startoffset = payload.startOffset
   if (payload.duration !== undefined) body.cr6cd_durationdays = payload.duration
+  if (payload.displayOrder !== undefined) body.cr6cd_displayorder = payload.displayOrder
   // Temporary compatibility bridge for Trevor's current app.
   if (payload.steps !== undefined) body.cr6cd_stepsjson = serializeSteps(payload.steps)
   if (payload.markers !== undefined) body.cr6cd_markersjson = serializeMarkers(payload.markers)
@@ -163,6 +165,7 @@ export async function createMobilization(
       status: 'draft',
       startOffset: payload.startOffset,
       duration: payload.duration,
+      displayOrder: payload.displayOrder,
       steps: toMockSteps(mobilizationId, payload.steps),
       markers: toMockMarkers(mobilizationId, payload.markers),
     })
@@ -218,6 +221,7 @@ export async function updateMobilization(
     if (payload.why !== undefined) existing.why = payload.why
     if (payload.startOffset !== undefined) existing.startOffset = payload.startOffset
     if (payload.duration !== undefined) existing.duration = payload.duration
+    if (payload.displayOrder !== undefined) existing.displayOrder = payload.displayOrder
     if (payload.steps !== undefined) existing.steps = toMockSteps(existing.id, payload.steps)
     if (payload.markers !== undefined) existing.markers = toMockMarkers(existing.id, payload.markers)
 
@@ -233,6 +237,7 @@ export async function updateMobilization(
       why: payload.why,
       startOffset: payload.startOffset,
       duration: payload.duration,
+      displayOrder: payload.displayOrder,
       steps: payload.steps,
       markers: payload.markers,
     })

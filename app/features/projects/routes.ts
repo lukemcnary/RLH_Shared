@@ -25,6 +25,7 @@ export const PROJECT_ROUTE_GROUPS: ProjectRouteGroup[] = [
     tabs: [
       { label: 'Project Scope', path: 'scope-items', description: 'Trade-ready project-scope statements built from project details.' },
       { label: 'Sequencer', path: 'sequencer', description: 'Gate and mobilization sequencing for planned and active field work.' },
+      { label: 'Trades', path: 'trades', description: 'Trade-focused execution workspace grouped by gate and mobilization.' },
       { label: 'Action Items', path: 'tasks', description: 'Project action items and checkpoints for field execution.' },
     ],
   },
