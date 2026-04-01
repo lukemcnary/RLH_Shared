@@ -1,4 +1,5 @@
-import { getSequencerData } from '@/lib/dataverse/adapter'
+import { getSequencerPageData } from '@/lib/dataverse/adapter'
+import { buildSequence } from '@/features/sequencer/sequence-engine'
 import { SequencerBoard } from '@/features/sequencer/sequencer-board'
 import { notFound } from 'next/navigation'
 
@@ -10,9 +11,17 @@ export default async function SequencerPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const data = await getSequencerData(id)
+  const pageData = await getSequencerPageData(id)
 
-  if (!data) notFound()
+  if (!pageData) notFound()
 
-  return <SequencerBoard data={data} />
+  const { data, executionData } = pageData
+
+  return (
+    <SequencerBoard
+      data={data}
+      executionData={executionData}
+      projection={buildSequence(executionData)}
+    />
+  )
 }

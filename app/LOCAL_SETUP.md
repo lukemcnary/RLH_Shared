@@ -53,7 +53,7 @@ http://localhost:3000/projects
 
 ## Best First Routes
 
-Use the built-in mock project `proj-001`.
+Use the built-in mock project `proj-001` (`Whitaker Residence Renovation`).
 
 - `/projects`
 - `/projects/proj-001`
@@ -61,8 +61,10 @@ Use the built-in mock project `proj-001`.
 - `/projects/proj-001/bid-packages`
 - `/projects/proj-001/sequencer`
 - `/projects/proj-001/files`
+- `/leads`
+- `/contacts`
 
-Those routes give the fastest overview of the flat peer-route project model and the current shared UI shape.
+Those routes give the fastest overview of the flat peer-route project model, current shared UI shape, and the seeded mock scenario.
 
 ---
 
@@ -88,6 +90,8 @@ Still placeholder or scaffolded:
 
 - mock mode is controlled by `DATAVERSE_MODE=mock`
 - reads come from `lib/mock-data.ts`
+- the mock collections are seeded from Dataverse-shaped fixtures in `lib/dataverse/mock-fixtures.ts`
+- live query files and mock seed setup share mapper helpers in `lib/dataverse/mappers.ts`
 - sequencer actions do not persist changes outside the current dev session
 - mock mode is the recommended starting point for adoption, design review, and most UI work
 

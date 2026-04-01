@@ -50,8 +50,19 @@ export async function createExpectation(
   payload: CreateExpectationPayload
 ): Promise<{ ok: boolean; id?: string; error?: string }> {
   if (IS_MOCK) {
+    const mock = await import('@/lib/mock-data')
+    const id = `exp-${Date.now()}`
+    mock.MOCK_EXPECTATIONS.push({
+      id,
+      description: payload.description,
+      category: payload.category,
+      tradeTypeId: payload.tradeTypeId,
+      tradeType: payload.tradeTypeId ? mock.MOCK_TRADE_TYPES.find((tradeType) => tradeType.id === payload.tradeTypeId) : undefined,
+      isActive: true,
+      createdAt: new Date().toISOString(),
+    })
     revalidatePath('/expectations')
-    return { ok: true }
+    return { ok: true, id }
   }
 
   try {
@@ -90,6 +101,21 @@ export async function updateExpectation(
   payload: Partial<CreateExpectationPayload> & { isActive?: boolean }
 ): Promise<{ ok: boolean; error?: string }> {
   if (IS_MOCK) {
+    const mock = await import('@/lib/mock-data')
+    const index = mock.MOCK_EXPECTATIONS.findIndex((expectation) => expectation.id === id)
+    if (index >= 0) {
+      const current = mock.MOCK_EXPECTATIONS[index]
+      const tradeTypeId = payload.tradeTypeId !== undefined ? payload.tradeTypeId : current.tradeTypeId
+      mock.MOCK_EXPECTATIONS[index] = {
+        ...current,
+        description: payload.description ?? current.description,
+        category: payload.category ?? current.category,
+        tradeTypeId,
+        tradeType: tradeTypeId ? mock.MOCK_TRADE_TYPES.find((tradeType) => tradeType.id === tradeTypeId) : undefined,
+        isActive: payload.isActive ?? current.isActive,
+        updatedAt: new Date().toISOString(),
+      }
+    }
     revalidatePath('/expectations')
     return { ok: true }
   }
@@ -135,8 +161,44 @@ export async function populateProjectExpectations(
   projectId: string
 ): Promise<{ ok: boolean; created: number; error?: string }> {
   if (IS_MOCK) {
+    const mock = await import('@/lib/mock-data')
+    const tradeTypeIds = new Set(
+      mock.MOCK_PROJECT_TRADES
+        .filter((projectTrade) => projectTrade.projectId === projectId)
+        .map((projectTrade) => projectTrade.tradeTypeId)
+    )
+    const existingExpectationIds = new Set(
+      mock.MOCK_PROJECT_EXPECTATIONS
+        .filter((projectExpectation) => projectExpectation.projectId === projectId)
+        .map((projectExpectation) => projectExpectation.expectationId)
+    )
+
+    let created = 0
+    let sortOrder = mock.MOCK_PROJECT_EXPECTATIONS
+      .filter((projectExpectation) => projectExpectation.projectId === projectId)
+      .reduce((max, projectExpectation) => Math.max(max, projectExpectation.sortOrder ?? 0), 0)
+
+    for (const expectation of mock.MOCK_EXPECTATIONS) {
+      if (!expectation.isActive) continue
+      if (existingExpectationIds.has(expectation.id)) continue
+      if (expectation.tradeTypeId && !tradeTypeIds.has(expectation.tradeTypeId)) continue
+
+      sortOrder += 10
+      mock.MOCK_PROJECT_EXPECTATIONS.push({
+        id: `pe-${projectId}-${expectation.id}`,
+        projectId,
+        expectationId: expectation.id,
+        expectation,
+        isIncluded: true,
+        sortOrder,
+        source: 'auto',
+      })
+      existingExpectationIds.add(expectation.id)
+      created++
+    }
+
     revalidatePath(projectPath(projectId))
-    return { ok: true, created: 0 }
+    return { ok: true, created }
   }
 
   try {
@@ -211,6 +273,17 @@ export async function updateProjectExpectation(
   projectId: string
 ): Promise<{ ok: boolean; error?: string }> {
   if (IS_MOCK) {
+    const mock = await import('@/lib/mock-data')
+    const index = mock.MOCK_PROJECT_EXPECTATIONS.findIndex((projectExpectation) => projectExpectation.id === payload.id)
+    if (index >= 0) {
+      const current = mock.MOCK_PROJECT_EXPECTATIONS[index]
+      mock.MOCK_PROJECT_EXPECTATIONS[index] = {
+        ...current,
+        isIncluded: payload.isIncluded ?? current.isIncluded,
+        customText: payload.customText !== undefined ? payload.customText : current.customText,
+        sortOrder: payload.sortOrder ?? current.sortOrder,
+      }
+    }
     revalidatePath(projectPath(projectId))
     return { ok: true }
   }

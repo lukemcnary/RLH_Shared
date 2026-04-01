@@ -8,61 +8,12 @@
 
 import { dvGet } from '../client'
 import type { ProjectFile, ProjectFileLink } from '@/types/database'
-
-interface DvProjectFile {
-  rlh_fileid: string
-  rlh_filename: string
-  rlh_sharepointurl?: string
-  rlh_filetype?: string
-  rlh_filesize?: number
-  rlh_notes?: string
-  rlh_librarykey?: ProjectFile['libraryKey']
-  rlh_sharepointsiteid?: string
-  rlh_sharepointdriveid?: string
-  rlh_sharepointitemid?: string
-  createdon?: string
-  modifiedon?: string
-  _rlh_project_value: string
-}
-
-interface DvProjectFileLink {
-  rlh_filelinkid: string
-  rlh_linkedrecordtype?: string
-  rlh_linkedrecordid?: string
-  rlh_linkedrecordlabel?: string
-  _rlh_file_value?: string
-}
-
-function toProjectFile(dv: DvProjectFile, linkedRecords: ProjectFileLink[]): ProjectFile {
-  return {
-    id: dv.rlh_fileid,
-    registeredFileId: dv.rlh_fileid,
-    projectId: dv._rlh_project_value,
-    libraryKey: dv.rlh_librarykey ?? 'admin_files',
-    name: dv.rlh_filename,
-    notes: dv.rlh_notes,
-    sharepointUrl: dv.rlh_sharepointurl,
-    sharePointSiteId: dv.rlh_sharepointsiteid,
-    sharePointDriveId: dv.rlh_sharepointdriveid,
-    sharePointItemId: dv.rlh_sharepointitemid,
-    registrationState: 'registered',
-    fileSizeBytes: dv.rlh_filesize,
-    mimeType: dv.rlh_filetype,
-    createdAt: dv.createdon,
-    modifiedAt: dv.modifiedon,
-    linkedRecords,
-  }
-}
-
-function toProjectFileLink(dv: DvProjectFileLink): ProjectFileLink {
-  return {
-    id: dv.rlh_filelinkid,
-    fileId: dv._rlh_file_value ?? '',
-    linkedRecordType: dv.rlh_linkedrecordtype ?? '',
-    linkedRecordId: dv.rlh_linkedrecordid ?? '',
-    linkedRecordLabel: dv.rlh_linkedrecordlabel,
-  }
-}
+import {
+  type DvProjectFile,
+  type DvProjectFileLink,
+  toProjectFile,
+  toProjectFileLink,
+} from '../mappers'
 
 export async function getProjectFileReferences(projectId: string): Promise<ProjectFile[]> {
   const filesRes = await dvGet<{ value: DvProjectFile[] }>(

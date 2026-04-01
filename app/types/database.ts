@@ -536,7 +536,18 @@ export interface Mobilization {
   /** Duration in working days. */
   duration: number
 
-  steps: TradeItem[]      // legacy action items / PPP steps (rlh_tradeitems)
+  /**
+   * Compatibility step list used by the current modal/edit bridge.
+   * Sequencing logic does not treat this as authoritative; runtime
+   * steps are derived from tradeScopes in the projector.
+   */
+  steps: TradeItem[]
+
+  /**
+   * Compatibility markers currently persisted with the mobilization.
+   * These still flow through the board, but they are not the primary
+   * source for sequencing structure.
+   */
   markers: MobilizationMarker[]
 }
 
@@ -569,6 +580,10 @@ export interface TradeItem {
   type?: TradeItemType
   status?: TradeItemStatus
   sortOrder: number
+  duration?: number
+  startDay?: number
+  endDay?: number
+  sourceScopeId?: string
 }
 
 /**
@@ -578,8 +593,13 @@ export interface TradeItem {
 export interface TradeScope {
   id: string
   projectTradeId: string
-  gateId: string
+  gateId?: string
+  mobilizationId?: string
+  name: string
   notes?: string
+  sortOrder?: number
+  duration?: number
+  partnerCompanyId?: string
 }
 
 /**
@@ -777,6 +797,65 @@ export interface SequencerData {
 }
 
 /**
+ * ProjectExecutionData — canonical project-scoped input for sequencing logic.
+ * This is the clean engine input assembled from the raw compatibility tables.
+ * Mobilizations in this bundle intentionally strip compatibility step blobs;
+ * runtime steps are derived from tradeScopes inside the projector.
+ */
+export interface ProjectExecutionData extends SequencerData {
+  tradeScopes: TradeScope[]
+}
+
+export interface SequenceStepProjection extends TradeItem {
+  duration: number
+  startDay: number
+  endDay: number
+  sourceScopeId: string
+}
+
+export interface SequenceMobilizationProjection extends Omit<Mobilization, 'steps'> {
+  scopes: TradeScope[]
+  steps: SequenceStepProjection[]
+  desiredStartOffset: number
+  resolvedStartOffset: number
+  projectedDuration: number
+  derivedDuration: number
+  resolvedEndOffset: number
+}
+
+export interface SequenceGateProjection {
+  gate: Gate
+  mobilizations: SequenceMobilizationProjection[]
+  tradeCount: number
+  stepCount: number
+  markerCount: number
+}
+
+export interface SequenceTradeProjection {
+  projectTrade: ProjectTrade
+  mobilizations: SequenceMobilizationProjection[]
+  gateIds: string[]
+  stepCount: number
+  markerCount: number
+}
+
+export interface SequenceProjection {
+  projectId: string
+  generatedAt: ISODateTime
+  totals: {
+    gateCount: number
+    tradeCount: number
+    mobilizationCount: number
+    stepCount: number
+    markerCount: number
+    scopeCount: number
+  }
+  mobilizations: SequenceMobilizationProjection[]
+  gates: SequenceGateProjection[]
+  trades: SequenceTradeProjection[]
+}
+
+/**
  * ProjectData — minimal project info passed to the project layout sidebar.
  */
 export interface ProjectData {
@@ -795,6 +874,8 @@ export interface CreateMobilizationPayload {
   why: string
   startOffset: number
   duration: number
+  steps?: Omit<TradeItem, 'mobilizationId'>[]
+  markers?: Omit<MobilizationMarker, 'mobilizationId'>[]
 }
 
 export interface UpdateMobilizationPayload {

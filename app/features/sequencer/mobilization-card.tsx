@@ -5,17 +5,17 @@
 // -------------------------------------------------------
 
 import { useRef, useState, useCallback } from 'react'
-import type { Mobilization } from '@/types/database'
+import type { SequenceMobilizationProjection } from '@/types/database'
 
 interface MobilizationCardProps {
-  mobilization: Mobilization
+  mobilization: SequenceMobilizationProjection
   lane: number
   pxPerDay: number
   projectStartDate: string
   mobNumber: string
   labelTopPad: number
   onClick: () => void
-  onUpdate: (mob: Mobilization) => void
+  onUpdateTimeline: (timeline: { startOffset: number; duration: number }) => void
 }
 
 const LANE_H      = 66
@@ -33,7 +33,7 @@ export function MobilizationCard({
   mobNumber,
   labelTopPad,
   onClick,
-  onUpdate,
+  onUpdateTimeline,
 }: MobilizationCardProps) {
   void projectStartDate
   const outerRef = useRef<HTMLDivElement>(null)
@@ -47,8 +47,8 @@ export function MobilizationCard({
   const [isDragging, setIsDragging] = useState(false)
   const [preview, setPreview] = useState<{ startOffset: number; duration: number } | null>(null)
 
-  const displayStart    = preview?.startOffset ?? mob.startOffset
-  const displayDuration = preview?.duration    ?? mob.duration
+  const displayStart    = preview?.startOffset ?? mob.resolvedStartOffset
+  const displayDuration = preview?.duration    ?? mob.projectedDuration
 
   const left     = displayStart * pxPerDay
   const top      = labelTopPad + lane * LANE_H
@@ -65,13 +65,13 @@ export function MobilizationCard({
     dragState.current = {
       type,
       startX: e.clientX,
-      startOffset: mob.startOffset,
-      startDuration: mob.duration,
+      startOffset: mob.resolvedStartOffset,
+      startDuration: mob.projectedDuration,
       moved: false,
     }
     outerRef.current?.setPointerCapture(e.pointerId)
     document.body.classList.add('sequencer-no-select')
-  }, [mob.startOffset, mob.duration])
+  }, [mob.projectedDuration, mob.resolvedStartOffset])
 
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
     const ds = dragState.current
@@ -95,14 +95,14 @@ export function MobilizationCard({
     document.body.classList.remove('sequencer-no-select')
     outerRef.current?.releasePointerCapture(e.pointerId)
     if (ds.moved && preview) {
-      onUpdate({ ...mob, startOffset: preview.startOffset, duration: preview.duration })
+      onUpdateTimeline({ startOffset: preview.startOffset, duration: preview.duration })
     } else if (!ds.moved) {
       onClick()
     }
     dragState.current = null
     setIsDragging(false)
     setPreview(null)
-  }, [mob, preview, onUpdate, onClick])
+  }, [preview, onClick, onUpdateTimeline])
 
   const handleCancel = useCallback(() => {
     document.body.classList.remove('sequencer-no-select')

@@ -13,6 +13,7 @@ interface MobilizationModalProps {
   projectTrades: ProjectTrade[]
   gates: Gate[]
   projectStartDate: string
+  isSaving?: boolean
   onSave: (updated: Mobilization) => void
   onDelete: () => void
   onClose: () => void
@@ -27,6 +28,7 @@ export function MobilizationModal({
   projectTrades,
   gates,
   projectStartDate,
+  isSaving = false,
   onSave,
   onDelete,
   onClose,
@@ -43,12 +45,12 @@ export function MobilizationModal({
   // Close on Escape
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
+      if (event.key === 'Escape' && !isSaving) onClose()
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [onClose])
+  }, [isSaving, onClose])
 
   // Lock body scroll
   useEffect(() => {
@@ -108,7 +110,7 @@ export function MobilizationModal({
 
   return (
     <div
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+      onClick={e => { if (e.target === e.currentTarget && !isSaving) onClose() }}
       style={{
         position: 'fixed', inset: 0,
         background: 'rgba(26, 26, 26, 0.3)',
@@ -161,6 +163,7 @@ export function MobilizationModal({
 
           <button
             onClick={onClose}
+            disabled={isSaving}
             style={{
               fontSize: 13,
               padding: '5px 14px', borderRadius: 5,
@@ -366,25 +369,25 @@ export function MobilizationModal({
           {confirmDelete ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: 13, color: 'var(--danger)' }}>Delete this mobilization?</span>
-              <button onClick={onDelete} style={footerDangerBtn}>Yes, delete</button>
-              <button onClick={() => setConfirmDelete(false)} style={footerSecondaryBtn}>Cancel</button>
+              <button onClick={onDelete} disabled={isSaving} style={footerDangerBtn}>Yes, delete</button>
+              <button onClick={() => setConfirmDelete(false)} disabled={isSaving} style={footerSecondaryBtn}>Cancel</button>
             </div>
           ) : (
-            <button onClick={() => setConfirmDelete(true)} style={footerDangerBtn}>
+            <button onClick={() => setConfirmDelete(true)} disabled={isSaving} style={footerDangerBtn}>
               Delete Mobilization
             </button>
           )}
 
           <button
             onClick={handleSave}
+            disabled={!projectTradeId || isSaving}
             style={{
               ...footerPrimaryBtn,
-              opacity: !projectTradeId ? 0.5 : 1,
-              cursor: !projectTradeId ? 'not-allowed' : 'pointer',
+              opacity: (!projectTradeId || isSaving) ? 0.5 : 1,
+              cursor: (!projectTradeId || isSaving) ? 'not-allowed' : 'pointer',
             }}
-            disabled={!projectTradeId}
           >
-            Save
+            {isSaving ? 'Saving...' : 'Save'}
           </button>
         </div>
       </div>

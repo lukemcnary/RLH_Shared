@@ -1,128 +1,498 @@
 // ============================================================
-// Mock Data — used when DATAVERSE_MODE=mock (the default)
+// Mock Data
 // ============================================================
+//
+// The app still exports mutable domain collections from this file,
+// but the starting dataset is now built from Dataverse-shaped
+// fixtures in lib/dataverse/mock-fixtures.ts and shared mapper
+// helpers in lib/dataverse/mappers.ts.
+// ============================================================
+
 import type {
-  Project, Gate, ProjectTrade, Mobilization,
-  CostItem, Selection, BidPackage, ScopeItem,
-  ScopeDetail, Task, TradeType, CostCode, Space,
+  BidPackage,
+  Capability,
+  ChangeOrder,
+  Client,
+  Company,
+  CompanyCapability,
+  CompanyType,
+  Contact,
+  ContactRole,
+  CostCode,
+  CostItem,
+  Expectation,
+  Gate,
+  Mobilization,
+  Project,
+  ProjectContact,
+  ProjectExpectation,
+  ProjectFile,
+  ProjectTrade,
+  Quote,
+  Rfi,
+  ScopeDetail,
+  ScopeItem,
+  Selection,
   SequencerData,
-  Expectation, ProjectExpectation,
-  ProjectFile, Company, CompanyType, Contact, ContactRole, ProjectContact,
-  Client, ChangeOrder, Rfi, Quote, Capability, CompanyCapability,
+  Space,
+  Task,
+  TradeType,
 } from '@/types/database'
+import {
+  PRIMARY_CLIENT_ID,
+  PRIMARY_PROJECT_ID,
+  RAW_BID_PACKAGES,
+  RAW_BID_PACKAGE_COST_ITEMS,
+  RAW_CAPABILITIES,
+  RAW_CLIENTS,
+  RAW_COMPANIES,
+  RAW_COMPANY_CAPABILITIES,
+  RAW_COMPANY_COMPANY_TYPES,
+  RAW_COMPANY_TRADE_TYPES,
+  RAW_COMPANY_TYPES,
+  RAW_CONTACTS,
+  RAW_CONTACT_ROLES,
+  RAW_COST_CODES,
+  RAW_COST_ITEMS,
+  RAW_COST_ITEM_SCOPE_ITEMS,
+  RAW_COST_ITEM_SPACES,
+  RAW_EXPECTATIONS,
+  RAW_FILE_LINKS,
+  RAW_GATES,
+  RAW_MOBILIZATIONS,
+  RAW_PROJECTS,
+  RAW_PROJECT_CONTACTS,
+  RAW_PROJECT_EXPECTATIONS,
+  RAW_PROJECT_TRADES,
+  RAW_QUOTES,
+  RAW_REGISTERED_FILES,
+  RAW_SCOPE_DETAILS,
+  RAW_SCOPE_ITEMS,
+  RAW_SCOPE_ITEM_SCOPE_DETAILS,
+  RAW_SCOPE_ITEM_SPACES,
+  RAW_SELECTIONS,
+  RAW_SELECTION_COST_ITEMS,
+  RAW_SELECTION_SPACES,
+  RAW_SHAREPOINT_ONLY_FILES,
+  RAW_SPACES,
+  RAW_TASKS,
+  RAW_TRADE_ITEMS,
+  RAW_TRADE_TYPES,
+  RAW_MOBILIZATION_MARKERS,
+} from '@/lib/dataverse/mock-fixtures'
+import {
+  toBidPackage,
+  toCapability,
+  toClient,
+  toCompany,
+  toCompanyCapability,
+  toCompanyType,
+  toContact,
+  toContactRole,
+  toCostCode,
+  toCostItem,
+  toExpectation,
+  toGate,
+  toMobilization,
+  toMobilizationMarker,
+  toProject,
+  toProjectContact,
+  toProjectExpectation,
+  toProjectFile,
+  toProjectFileLink,
+  toProjectTrade,
+  toQuote,
+  toScopeDetail,
+  toScopeItem,
+  toSelection,
+  toSpace,
+  toTask,
+  toTradeItem,
+  toTradeType,
+} from '@/lib/dataverse/mappers'
 
-// ── Trade types ──────────────────────────────────────────────
-export const MOCK_TRADE_TYPES: TradeType[] = [
-  { id: 'trade-excavation', name: 'Excavation', code: 'EXC', color: '#8B6914' },
-  { id: 'trade-concrete', name: 'Concrete', code: 'CON', color: '#6B6560' },
-  { id: 'trade-framing', name: 'Framing', code: 'FRM', color: '#7A4F2E' },
-  { id: 'trade-roofing', name: 'Roofing', code: 'ROF', color: '#2E4A6B' },
-  { id: 'trade-plumbing', name: 'Plumbing', code: 'PLM', color: '#1A5E8A' },
-  { id: 'trade-hvac', name: 'HVAC', code: 'HVC', color: '#2E6B4A' },
-  { id: 'trade-electrical', name: 'Electrical', code: 'ELC', color: '#7A6B1A' },
-  { id: 'trade-insulation', name: 'Insulation', code: 'INS', color: '#5E3A7A' },
-  { id: 'trade-drywall', name: 'Drywall', code: 'DRY', color: '#7A5E4A' },
-  { id: 'trade-flooring', name: 'Flooring', code: 'FLR', color: '#4A7A5E' },
-  { id: 'trade-tile', name: 'Tile', code: 'TIL', color: '#6B4A7A' },
-  { id: 'trade-cabinets', name: 'Cabinets', code: 'CAB', color: '#7A6A3A' },
-  { id: 'trade-paint', name: 'Paint', code: 'PNT', color: '#3A6A7A' },
-  { id: 'trade-trim', name: 'Trim & Millwork', code: 'TRM', color: '#6A3A4A' },
-]
+function defined<T>(value: T | undefined | null): value is T {
+  return value != null
+}
 
-// ── Cost codes (hierarchical) ─────────────────────────────────
-export const MOCK_COST_CODES: CostCode[] = [
-  // Division 02 — Site Work
-  { id: 'cc-div-02', code: '02', fullCode: '02', name: 'Site Work', level: 1, sortOrder: 10 },
-  { id: 'cc-02-200', code: '200', fullCode: '02-200', name: 'Earthwork', level: 2, parentId: 'cc-div-02', sortOrder: 20 },
-  { id: 'cc-01', code: '210', fullCode: '02-210', name: 'Site Preparation', level: 3, parentId: 'cc-02-200', tradeTypeId: 'trade-excavation', sortOrder: 30 },
+function groupValues<T>(items: T[], key: (item: T) => string, value: (item: T) => string) {
+  const map = new Map<string, string[]>()
+  for (const item of items) {
+    const mapKey = key(item)
+    const existing = map.get(mapKey) ?? []
+    existing.push(value(item))
+    map.set(mapKey, existing)
+  }
+  return map
+}
 
-  // Division 03 — Concrete
-  { id: 'cc-div-03', code: '03', fullCode: '03', name: 'Concrete', level: 1, sortOrder: 40 },
-  { id: 'cc-03-100', code: '100', fullCode: '03-100', name: 'Concrete Forming & Reinforcing', level: 2, parentId: 'cc-div-03', sortOrder: 50 },
-  { id: 'cc-02', code: '110', fullCode: '03-110', name: 'Foundation — Footings & Walls', level: 3, parentId: 'cc-03-100', tradeTypeId: 'trade-concrete', sortOrder: 60 },
-  { id: 'cc-03-200', code: '200', fullCode: '03-200', name: 'Concrete Flatwork', level: 2, parentId: 'cc-div-03', sortOrder: 70 },
-  { id: 'cc-03', code: '210', fullCode: '03-210', name: 'Basement Floor Slab', level: 3, parentId: 'cc-03-200', tradeTypeId: 'trade-concrete', sortOrder: 80 },
+const SCOPE_ITEM_STATUSES: Record<string, 'draft' | 'confirmed'> = {
+  'scope-item-001': 'confirmed',
+  'scope-item-002': 'draft',
+  'scope-item-003': 'confirmed',
+  'scope-item-004': 'confirmed',
+  'scope-item-005': 'draft',
+}
 
-  // Division 06 — Wood & Plastics
-  { id: 'cc-div-06', code: '06', fullCode: '06', name: 'Wood & Plastics', level: 1, sortOrder: 90 },
-  { id: 'cc-06-100', code: '100', fullCode: '06-100', name: 'Rough Carpentry', level: 2, parentId: 'cc-div-06', sortOrder: 100 },
-  { id: 'cc-04', code: '110', fullCode: '06-110', name: 'Rough Framing', level: 3, parentId: 'cc-06-100', tradeTypeId: 'trade-framing', sortOrder: 110 },
-  { id: 'cc-06-220', code: '220', fullCode: '06-220', name: 'Finish Carpentry & Millwork', level: 2, parentId: 'cc-div-06', sortOrder: 120 },
-  { id: 'cc-17', code: '221', fullCode: '06-221', name: 'Trim & Millwork', level: 3, parentId: 'cc-06-220', tradeTypeId: 'trade-trim', sortOrder: 130 },
-  { id: 'cc-06-400', code: '400', fullCode: '06-400', name: 'Cabinets & Casework', level: 2, parentId: 'cc-div-06', sortOrder: 140 },
-  { id: 'cc-14', code: '410', fullCode: '06-410', name: 'Cabinets & Casework', level: 3, parentId: 'cc-06-400', tradeTypeId: 'trade-cabinets', sortOrder: 150 },
+const SCOPE_ITEM_COORDINATION_TRADE_IDS: Record<string, string[]> = {
+  'scope-item-001': ['trade-electrical', 'trade-hvac'],
+  'scope-item-002': ['trade-plumbing'],
+  'scope-item-003': ['trade-cabinets'],
+  'scope-item-004': ['trade-framing', 'trade-plumbing'],
+  'scope-item-005': ['trade-cabinets', 'trade-flooring'],
+}
 
-  // Division 07 — Thermal & Moisture
-  { id: 'cc-div-07', code: '07', fullCode: '07', name: 'Thermal & Moisture Protection', level: 1, sortOrder: 160 },
-  { id: 'cc-07-200', code: '200', fullCode: '07-200', name: 'Insulation', level: 2, parentId: 'cc-div-07', sortOrder: 170 },
-  { id: 'cc-11', code: '210', fullCode: '07-210', name: 'Insulation', level: 3, parentId: 'cc-07-200', tradeTypeId: 'trade-insulation', sortOrder: 180 },
-  { id: 'cc-07-310', code: '310', fullCode: '07-310', name: 'Roofing', level: 2, parentId: 'cc-div-07', sortOrder: 190 },
-  { id: 'cc-05', code: '311', fullCode: '07-311', name: 'Roofing System', level: 3, parentId: 'cc-07-310', tradeTypeId: 'trade-roofing', sortOrder: 200 },
+// ── Core lookups ─────────────────────────────────────────────
 
-  // Division 09 — Finishes
-  { id: 'cc-div-09', code: '09', fullCode: '09', name: 'Finishes', level: 1, sortOrder: 210 },
-  { id: 'cc-09-250', code: '250', fullCode: '09-250', name: 'Gypsum Board', level: 2, parentId: 'cc-div-09', sortOrder: 220 },
-  { id: 'cc-12', code: '251', fullCode: '09-251', name: 'Drywall', level: 3, parentId: 'cc-09-250', tradeTypeId: 'trade-drywall', sortOrder: 230 },
-  { id: 'cc-09-300', code: '300', fullCode: '09-300', name: 'Tile', level: 2, parentId: 'cc-div-09', sortOrder: 240 },
-  { id: 'cc-13', code: '310', fullCode: '09-310', name: 'Tile Work', level: 3, parentId: 'cc-09-300', tradeTypeId: 'trade-tile', sortOrder: 250 },
-  { id: 'cc-09-640', code: '640', fullCode: '09-640', name: 'Wood Flooring', level: 2, parentId: 'cc-div-09', sortOrder: 260 },
-  { id: 'cc-15', code: '641', fullCode: '09-641', name: 'Hardwood Flooring', level: 3, parentId: 'cc-09-640', tradeTypeId: 'trade-flooring', sortOrder: 270 },
-  { id: 'cc-09-900', code: '900', fullCode: '09-900', name: 'Paints & Coatings', level: 2, parentId: 'cc-div-09', sortOrder: 280 },
-  { id: 'cc-16', code: '910', fullCode: '09-910', name: 'Paint & Coatings', level: 3, parentId: 'cc-09-900', tradeTypeId: 'trade-paint', sortOrder: 290 },
+export const MOCK_TRADE_TYPES: TradeType[] = RAW_TRADE_TYPES.map(toTradeType)
+const tradeTypeById = new Map(MOCK_TRADE_TYPES.map((tradeType) => [tradeType.id, tradeType]))
 
-  // Division 15 — Mechanical
-  { id: 'cc-div-15', code: '15', fullCode: '15', name: 'Mechanical', level: 1, sortOrder: 300 },
-  { id: 'cc-15-100', code: '100', fullCode: '15-100', name: 'Plumbing', level: 2, parentId: 'cc-div-15', sortOrder: 310 },
-  { id: 'cc-06', code: '110', fullCode: '15-110', name: 'Rough Plumbing', level: 3, parentId: 'cc-15-100', tradeTypeId: 'trade-plumbing', sortOrder: 320 },
-  { id: 'cc-07', code: '200', fullCode: '15-200', name: 'Plumbing Fixtures & Trim', level: 3, parentId: 'cc-15-100', tradeTypeId: 'trade-plumbing', sortOrder: 330 },
-  { id: 'cc-15-400', code: '400', fullCode: '15-400', name: 'HVAC', level: 2, parentId: 'cc-div-15', sortOrder: 340 },
-  { id: 'cc-08', code: '410', fullCode: '15-410', name: 'HVAC System', level: 3, parentId: 'cc-15-400', tradeTypeId: 'trade-hvac', sortOrder: 350 },
+export const MOCK_COST_CODES: CostCode[] = RAW_COST_CODES.map(toCostCode)
+const costCodeById = new Map(MOCK_COST_CODES.map((costCode) => [costCode.id, costCode]))
 
-  // Division 16 — Electrical
-  { id: 'cc-div-16', code: '16', fullCode: '16', name: 'Electrical', level: 1, sortOrder: 360 },
-  { id: 'cc-16-100', code: '100', fullCode: '16-100', name: 'Electrical Rough-In', level: 2, parentId: 'cc-div-16', sortOrder: 370 },
-  { id: 'cc-09', code: '110', fullCode: '16-110', name: 'Rough Electrical', level: 3, parentId: 'cc-16-100', tradeTypeId: 'trade-electrical', sortOrder: 380 },
-  { id: 'cc-16-200', code: '200', fullCode: '16-200', name: 'Electrical Fixtures & Devices', level: 2, parentId: 'cc-div-16', sortOrder: 390 },
-  { id: 'cc-10', code: '210', fullCode: '16-210', name: 'Electrical Fixtures & Devices', level: 3, parentId: 'cc-16-200', tradeTypeId: 'trade-electrical', sortOrder: 400 },
-]
+export const MOCK_COMPANY_TYPES: CompanyType[] = RAW_COMPANY_TYPES.map(toCompanyType)
+const companyTypeById = new Map(MOCK_COMPANY_TYPES.map((companyType) => [companyType.id, companyType]))
 
-// ── Empty project data collections ──────────────────────────
-export const MOCK_SPACES: Space[] = []
-export const MOCK_PROJECTS: Project[] = []
-export const MOCK_GATES: Gate[] = []
-export const MOCK_PROJECT_TRADES: ProjectTrade[] = []
-export const MOCK_MOBILIZATIONS: Mobilization[] = []
-export const MOCK_COST_ITEMS: CostItem[] = []
-export const MOCK_SCOPE_ITEMS: ScopeItem[] = []
-export const MOCK_SCOPE_DETAILS: ScopeDetail[] = []
-export const MOCK_SELECTIONS: Selection[] = []
-export const MOCK_BID_PACKAGES: BidPackage[] = []
-export const MOCK_TASKS: Task[] = []
-export const MOCK_PROJECT_FILES: ProjectFile[] = []
-export const MOCK_EXPECTATIONS: Expectation[] = []
-export const MOCK_PROJECT_EXPECTATIONS: ProjectExpectation[] = []
-export const MOCK_COMPANY_TYPES: CompanyType[] = []
-export const MOCK_COMPANIES: Company[] = []
-export const MOCK_CAPABILITIES: Capability[] = []
-export const MOCK_COMPANY_CAPABILITIES: CompanyCapability[] = []
-export const MOCK_CONTACT_ROLES: ContactRole[] = []
-export const MOCK_CONTACTS: Contact[] = []
-export const MOCK_PROJECT_CONTACTS: ProjectContact[] = []
-export const MOCK_CLIENT: Client = { id: '', name: '', status: 'new' }
-export const MOCK_CLIENTS: Client[] = []
+const companyTypeIdsByCompany = groupValues(
+  RAW_COMPANY_COMPANY_TYPES,
+  (item) => item._rlh_company_value,
+  (item) => item._rlh_companytype_value,
+)
+
+const tradeTypeIdsByCompany = groupValues(
+  RAW_COMPANY_TRADE_TYPES,
+  (item) => item._rlh_company_value,
+  (item) => item._rlh_tradetype_value,
+)
+
+export const MOCK_COMPANIES: Company[] = RAW_COMPANIES.map((rawCompany) => {
+  const company = toCompany(rawCompany)
+  const companyTypeIds = companyTypeIdsByCompany.get(company.id) ?? []
+  const linkedTradeTypeIds = tradeTypeIdsByCompany.get(company.id) ?? []
+
+  return {
+    ...company,
+    companyTypeIds,
+    companyTypes: companyTypeIds.map((id) => companyTypeById.get(id)).filter(defined),
+    tradeTypeIds: linkedTradeTypeIds,
+    tradeTypes: linkedTradeTypeIds.map((id) => tradeTypeById.get(id)).filter(defined),
+  }
+})
+const companyById = new Map(MOCK_COMPANIES.map((company) => [company.id, company]))
+
+export const MOCK_CONTACTS: Contact[] = RAW_CONTACTS.map((rawContact) => {
+  const contact = toContact(rawContact)
+  return {
+    ...contact,
+    company: contact.companyId ? companyById.get(contact.companyId) : undefined,
+  }
+})
+const contactById = new Map(MOCK_CONTACTS.map((contact) => [contact.id, contact]))
+
+export const MOCK_CONTACT_ROLES: ContactRole[] = RAW_CONTACT_ROLES.map(toContactRole)
+const contactRoleById = new Map(MOCK_CONTACT_ROLES.map((contactRole) => [contactRole.id, contactRole]))
+
+export const MOCK_CAPABILITIES: Capability[] = RAW_CAPABILITIES.map(toCapability).map((capability) => ({
+  ...capability,
+  tradeType: capability.tradeTypeId ? tradeTypeById.get(capability.tradeTypeId) : undefined,
+}))
+const capabilityById = new Map(MOCK_CAPABILITIES.map((capability) => [capability.id, capability]))
+
+export const MOCK_COMPANY_CAPABILITIES: CompanyCapability[] = RAW_COMPANY_CAPABILITIES.map((rawCompanyCapability) => {
+  const companyCapability = toCompanyCapability(rawCompanyCapability)
+  return {
+    ...companyCapability,
+    capability: capabilityById.get(companyCapability.capabilityId),
+  }
+})
+
+export const MOCK_CLIENTS: Client[] = RAW_CLIENTS.map(toClient)
+const clientById = new Map(MOCK_CLIENTS.map((client) => [client.id, client]))
+export const MOCK_CLIENT: Client = clientById.get(PRIMARY_CLIENT_ID) ?? MOCK_CLIENTS[0] ?? { id: '', name: '', status: 'new' }
+
+export const MOCK_PROJECTS: Project[] = RAW_PROJECTS.map((rawProject) => {
+  const project = toProject(rawProject)
+  return {
+    ...project,
+    client: project.clientId ? clientById.get(project.clientId) : undefined,
+  }
+})
+const projectById = new Map(MOCK_PROJECTS.map((project) => [project.id, project]))
+
+export const MOCK_PROJECT_CONTACTS: ProjectContact[] = RAW_PROJECT_CONTACTS.map((rawProjectContact) => {
+  const projectContact = toProjectContact(rawProjectContact)
+  return {
+    ...projectContact,
+    contact: contactById.get(projectContact.contactId),
+    contactRole: projectContact.contactRoleId ? contactRoleById.get(projectContact.contactRoleId) : undefined,
+  }
+})
+
+export const MOCK_SPACES: Space[] = RAW_SPACES.map(toSpace)
+const spaceById = new Map(MOCK_SPACES.map((space) => [space.id, space]))
+
+export const MOCK_SCOPE_DETAILS: ScopeDetail[] = RAW_SCOPE_DETAILS.map((rawScopeDetail) => {
+  const scopeDetail = toScopeDetail(rawScopeDetail)
+  return {
+    ...scopeDetail,
+    space: scopeDetail.spaceId ? spaceById.get(scopeDetail.spaceId) : undefined,
+    tradeType: scopeDetail.tradeTypeId ? tradeTypeById.get(scopeDetail.tradeTypeId) : undefined,
+  }
+})
+const scopeDetailById = new Map(MOCK_SCOPE_DETAILS.map((scopeDetail) => [scopeDetail.id, scopeDetail]))
+
+const scopeDetailIdsByScopeItem = groupValues(
+  RAW_SCOPE_ITEM_SCOPE_DETAILS,
+  (item) => item._rlh_scopeitem_value,
+  (item) => item._rlh_scopedetail_value,
+)
+
+const spaceIdsByScopeItem = groupValues(
+  RAW_SCOPE_ITEM_SPACES,
+  (item) => item._rlh_scopeitem_value,
+  (item) => item._rlh_space_value,
+)
+
+const scopeItemIdsByCostItem = groupValues(
+  RAW_COST_ITEM_SCOPE_ITEMS,
+  (item) => item._rlh_costitem_value,
+  (item) => item._rlh_scopeitem_value,
+)
+
+const costItemIdsByScopeItem = groupValues(
+  RAW_COST_ITEM_SCOPE_ITEMS,
+  (item) => item._rlh_scopeitem_value,
+  (item) => item._rlh_costitem_value,
+)
+
+const spaceIdsByCostItem = groupValues(
+  RAW_COST_ITEM_SPACES,
+  (item) => item._rlh_costitem_value,
+  (item) => item._rlh_space_value,
+)
+
+export const MOCK_COST_ITEMS: CostItem[] = RAW_COST_ITEMS.map((rawCostItem) => {
+  const costItem = toCostItem(rawCostItem)
+  const linkedScopeItemIds = scopeItemIdsByCostItem.get(costItem.id) ?? []
+  const linkedSpaceIds = spaceIdsByCostItem.get(costItem.id) ?? []
+  const primarySpaceId = linkedSpaceIds[0] ?? costItem.spaceId
+
+  return {
+    ...costItem,
+    scopeItemId: linkedScopeItemIds[0],
+    tradeType: costItem.tradeTypeId ? tradeTypeById.get(costItem.tradeTypeId) : undefined,
+    costCode: costItem.costCodeId ? costCodeById.get(costItem.costCodeId) : undefined,
+    spaceId: primarySpaceId,
+    space: primarySpaceId ? spaceById.get(primarySpaceId) : undefined,
+  }
+})
+const costItemById = new Map(MOCK_COST_ITEMS.map((costItem) => [costItem.id, costItem]))
+
+export const MOCK_SCOPE_ITEMS: ScopeItem[] = RAW_SCOPE_ITEMS.map((rawScopeItem) => {
+  const scopeItem = toScopeItem(rawScopeItem)
+  const linkedScopeDetailIds = scopeDetailIdsByScopeItem.get(scopeItem.id) ?? []
+  const linkedSpaceIds = spaceIdsByScopeItem.get(scopeItem.id) ?? []
+  const linkedCostItemIds = costItemIdsByScopeItem.get(scopeItem.id) ?? []
+  const coordinationTradeIds = SCOPE_ITEM_COORDINATION_TRADE_IDS[scopeItem.id] ?? []
+
+  return {
+    ...scopeItem,
+    status: SCOPE_ITEM_STATUSES[scopeItem.id],
+    tradeType: scopeItem.tradeTypeId ? tradeTypeById.get(scopeItem.tradeTypeId) : undefined,
+    costCode: scopeItem.costCodeId ? costCodeById.get(scopeItem.costCodeId) : undefined,
+    coordinationTrades: coordinationTradeIds.map((tradeId) => tradeTypeById.get(tradeId)).filter(defined),
+    spaces: linkedSpaceIds.map((spaceId) => spaceById.get(spaceId)).filter(defined),
+    scopeDetails: linkedScopeDetailIds.map((scopeDetailId) => {
+      const scopeDetail = scopeDetailById.get(scopeDetailId)
+      return {
+        id: scopeDetailId,
+        name: scopeDetail?.content ?? scopeDetailId,
+      }
+    }),
+    costItems: linkedCostItemIds
+      .map((costItemId) => costItemById.get(costItemId))
+      .filter(defined)
+      .map((costItem) => ({ id: costItem.id, name: costItem.name })),
+  }
+})
+
+const costItemIdsByBidPackage = groupValues(
+  RAW_BID_PACKAGE_COST_ITEMS,
+  (item) => item._rlh_bidpackage_value,
+  (item) => item._rlh_costitem_value,
+)
+
+export const MOCK_BID_PACKAGES: BidPackage[] = RAW_BID_PACKAGES.map((rawBidPackage) => {
+  const bidPackage = toBidPackage(rawBidPackage)
+  return {
+    ...bidPackage,
+    tradeType: bidPackage.tradeTypeId ? tradeTypeById.get(bidPackage.tradeTypeId) : undefined,
+    awardedCompany: bidPackage.awardedCompanyId ? companyById.get(bidPackage.awardedCompanyId) : undefined,
+    costItemIds: costItemIdsByBidPackage.get(bidPackage.id) ?? [],
+  }
+})
+
+export const MOCK_QUOTES: Quote[] = RAW_QUOTES.map((rawQuote) => {
+  const quote = toQuote(rawQuote)
+  return {
+    ...quote,
+    company: companyById.get(quote.companyId),
+  }
+})
+
+const costItemIdsBySelection = groupValues(
+  RAW_SELECTION_COST_ITEMS,
+  (item) => item._rlh_selection_value,
+  (item) => item._rlh_costitem_value,
+)
+
+const spaceIdsBySelection = groupValues(
+  RAW_SELECTION_SPACES,
+  (item) => item._rlh_selection_value,
+  (item) => item._rlh_space_value,
+)
+
+export const MOCK_SELECTIONS: Selection[] = RAW_SELECTIONS.map((rawSelection) => {
+  const selection = toSelection(rawSelection)
+  const linkedCostItemIds = costItemIdsBySelection.get(selection.id) ?? []
+  const linkedSpaceIds = spaceIdsBySelection.get(selection.id) ?? []
+
+  return {
+    ...selection,
+    tradeType: selection.tradeTypeId ? tradeTypeById.get(selection.tradeTypeId) : undefined,
+    space: selection.spaceId ? spaceById.get(selection.spaceId) : undefined,
+    spaces: linkedSpaceIds.map((spaceId) => spaceById.get(spaceId)).filter(defined),
+    costItems: linkedCostItemIds
+      .map((costItemId) => costItemById.get(costItemId))
+      .filter(defined)
+      .map((costItem) => ({
+        id: costItem.id,
+        name: costItem.name,
+        tradeType: costItem.tradeType,
+      })),
+    supplierCompany: selection.vendorCompanyId
+      ? {
+          id: selection.vendorCompanyId,
+          name: companyById.get(selection.vendorCompanyId)?.name ?? 'Unknown company',
+        }
+      : undefined,
+  }
+})
+
+export const MOCK_GATES: Gate[] = RAW_GATES.map(toGate)
+const gateById = new Map(MOCK_GATES.map((gate) => [gate.id, gate]))
+
+export const MOCK_PROJECT_TRADES: ProjectTrade[] = RAW_PROJECT_TRADES.map((rawProjectTrade) => {
+  const projectTrade = toProjectTrade(rawProjectTrade)
+  return {
+    ...projectTrade,
+    company: projectTrade.companyId ? companyById.get(projectTrade.companyId) : undefined,
+  }
+})
+
+const tradeItemsByMobilization = new Map<string, ReturnType<typeof toTradeItem>[]>()
+for (const rawTradeItem of RAW_TRADE_ITEMS) {
+  const mobilizationId = rawTradeItem._cr6cd_mobilizationsid_value ?? rawTradeItem._rlh_mobilization_value
+  if (!mobilizationId) continue
+  const existing = tradeItemsByMobilization.get(mobilizationId) ?? []
+  existing.push(toTradeItem(rawTradeItem))
+  tradeItemsByMobilization.set(mobilizationId, existing)
+}
+
+const markersByMobilization = new Map<string, ReturnType<typeof toMobilizationMarker>[]>()
+for (const rawMarker of RAW_MOBILIZATION_MARKERS) {
+  const mobilizationId = rawMarker._cr6cd_mobilizationsid_value ?? rawMarker._cr720_mobilization_value
+  if (!mobilizationId) continue
+  const existing = markersByMobilization.get(mobilizationId) ?? []
+  existing.push(toMobilizationMarker(rawMarker))
+  markersByMobilization.set(mobilizationId, existing)
+}
+
+export const MOCK_MOBILIZATIONS: Mobilization[] = RAW_MOBILIZATIONS.map((rawMobilization) => {
+  const mobilizationId = rawMobilization.cr6cd_mobilizationsid ?? rawMobilization.cr6cd_mobilizationid ?? ''
+  const projectTradeId = rawMobilization._cr6cd_projecttrade_value ?? rawMobilization._rlh_projecttradeid_value
+
+  return toMobilization(
+    rawMobilization,
+    MOCK_PROJECT_TRADES.find((projectTrade) => projectTrade.id === projectTradeId),
+    tradeItemsByMobilization.get(mobilizationId) ?? [],
+    markersByMobilization.get(mobilizationId) ?? [],
+  )
+})
+const mobilizationById = new Map(MOCK_MOBILIZATIONS.map((mobilization) => [mobilization.id, mobilization]))
+
+export const MOCK_TASKS: Task[] = RAW_TASKS.map((rawTask) => {
+  const task = toTask(rawTask)
+  const mobilization = task.mobilizationId ? mobilizationById.get(task.mobilizationId) : undefined
+
+  return {
+    ...task,
+    gateId: mobilization?.gateId ?? gateById.get(task.gateId ?? '')?.id,
+  }
+})
+
+export const MOCK_EXPECTATIONS: Expectation[] = RAW_EXPECTATIONS.map((rawExpectation) => {
+  const expectation = toExpectation(rawExpectation)
+  return {
+    ...expectation,
+    tradeType: expectation.tradeTypeId ? tradeTypeById.get(expectation.tradeTypeId) : undefined,
+  }
+})
+const expectationById = new Map(MOCK_EXPECTATIONS.map((expectation) => [expectation.id, expectation]))
+
+export const MOCK_PROJECT_EXPECTATIONS: ProjectExpectation[] = RAW_PROJECT_EXPECTATIONS.map((rawProjectExpectation) => {
+  const projectExpectation = toProjectExpectation(rawProjectExpectation)
+  return {
+    ...projectExpectation,
+    expectation: expectationById.get(projectExpectation.expectationId),
+  }
+})
+
+const linkedRecordsByFileId = new Map<string, ReturnType<typeof toProjectFileLink>[]>()
+for (const rawFileLink of RAW_FILE_LINKS) {
+  const link = toProjectFileLink(rawFileLink)
+  const existing = linkedRecordsByFileId.get(link.fileId) ?? []
+  existing.push(link)
+  linkedRecordsByFileId.set(link.fileId, existing)
+}
+
+const registeredFiles = RAW_REGISTERED_FILES.map((rawFile) =>
+  toProjectFile(rawFile, linkedRecordsByFileId.get(rawFile.rlh_fileid) ?? []),
+)
+
+const sharePointOnlyFiles: ProjectFile[] = RAW_SHAREPOINT_ONLY_FILES.map((file) => ({
+  id: file.id,
+  projectId: file.projectId,
+  libraryKey: file.libraryKey,
+  name: file.name,
+  description: file.description,
+  notes: file.notes,
+  sharepointUrl: file.sharepointUrl,
+  sharePointSiteId: file.sharePointSiteId,
+  sharePointDriveId: file.sharePointDriveId,
+  sharePointItemId: file.sharePointItemId,
+  registrationState: 'sharepoint_only',
+  fileSizeBytes: file.fileSizeBytes,
+  mimeType: file.mimeType,
+  createdAt: file.createdAt,
+  modifiedAt: file.modifiedAt,
+  linkedRecords: [],
+}))
+
+export const MOCK_PROJECT_FILES: ProjectFile[] = [...registeredFiles, ...sharePointOnlyFiles]
+
 export const MOCK_CHANGE_ORDERS: ChangeOrder[] = []
 export const MOCK_RFIS: Rfi[] = []
-export const MOCK_QUOTES: Quote[] = []
 
-// ── Sequencer bundle ─────────────────────────────────────────
 export const MOCK_SEQUENCER_DATA: SequencerData = {
-  project: { id: '', name: '', status: 'planning' },
-  gates: [],
-  projectTrades: [],
-  mobilizations: [],
+  project: projectById.get(PRIMARY_PROJECT_ID) ?? { id: '', name: '', status: 'planning' },
+  gates: MOCK_GATES.filter((gate) => gate.projectId === PRIMARY_PROJECT_ID),
+  projectTrades: MOCK_PROJECT_TRADES.filter((projectTrade) => projectTrade.projectId === PRIMARY_PROJECT_ID),
+  mobilizations: MOCK_MOBILIZATIONS.filter((mobilization) => mobilization.projectId === PRIMARY_PROJECT_ID),
 }
 
 // ── Helpers ──────────────────────────────────────────────────
+
 export function offsetToDate(offset: number, projectStartDate: string): Date {
   const start = new Date(projectStartDate + 'T00:00:00')
   const result = new Date(start)

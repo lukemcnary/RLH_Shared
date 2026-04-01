@@ -5,56 +5,22 @@
 // ============================================================
 
 import { dvGet } from '../client'
-import type { ProjectTrade, ProjectTradeStage, TradeType } from '@/types/database'
-
-const STAGE_MAP: Record<number, ProjectTradeStage> = {
-  936880000: 'planned',
-  936880001: 'in_progress',
-  936880002: 'complete',
-}
-
-interface DvProjectTrade {
-  rlh_projecttradeid: string
-  _rlh_projectid_value: string
-  _cr6cd_tradeid_value: string
-  rlh_stage?: number
-  _rlh_companyid_value?: string
-  // Expanded trade (when $expand=cr6cd_tradeid used)
-  cr6cd_tradeid?: {
-    cr6cd_tradeid: string
-    cr6cd_name: string
-    cr6cd_tradecode?: string
-    cr6cd_color?: string
-  }
-}
-
-function toProjectTrade(dv: DvProjectTrade): ProjectTrade {
-  const tradeType: TradeType = dv.cr6cd_tradeid
-    ? {
-        id: dv.cr6cd_tradeid.cr6cd_tradeid,
-        name: dv.cr6cd_tradeid.cr6cd_name,
-        code: dv.cr6cd_tradeid.cr6cd_tradecode ?? '',
-        color: dv.cr6cd_tradeid.cr6cd_color,
-      }
-    : {
-        id: dv._cr6cd_tradeid_value,
-        name: '(unknown trade)',
-        code: '???',
-      }
-
-  return {
-    id: dv.rlh_projecttradeid,
-    projectId: dv._rlh_projectid_value,
-    tradeTypeId: dv._cr6cd_tradeid_value,
-    tradeType,
-    stage: STAGE_MAP[dv.rlh_stage ?? 936880000] ?? 'planned',
-    companyId: dv._rlh_companyid_value,
-  }
-}
+import type { ProjectTrade } from '@/types/database'
+import { getTradeTypes } from './trade-types'
+import { type DvProjectTrade, toProjectTrade } from '../mappers'
 
 export async function getProjectTrades(projectId: string): Promise<ProjectTrade[]> {
-  const res = await dvGet<{ value: DvProjectTrade[] }>(
-    `rlh_projecttrades?$select=rlh_projecttradeid,_rlh_projectid_value,_cr6cd_tradeid_value,rlh_stage,_rlh_companyid_value&$expand=cr6cd_tradeid($select=cr6cd_tradeid,cr6cd_name,cr6cd_tradecode,cr6cd_color)&$filter=_rlh_projectid_value eq '${projectId}'`
-  )
-  return res.value.map(toProjectTrade)
+  const [res, tradeTypes] = await Promise.all([
+    dvGet<{ value: DvProjectTrade[] }>(
+      `rlh_projecttrades?$select=rlh_projecttradeid,rlh_externalid,rlh_newcolumn,_rlh_project_value,_rlh_trade_value,rlh_stage&$filter=_rlh_project_value eq guid'${projectId}'`
+    ),
+    getTradeTypes(),
+  ])
+
+  const tradeTypesById = new Map(tradeTypes.map((tradeType) => [tradeType.id, tradeType]))
+
+  return res.value.map((projectTrade) => {
+    const tradeTypeId = projectTrade._rlh_trade_value ?? projectTrade.rlh_externalid ?? ''
+    return toProjectTrade(projectTrade, tradeTypesById.get(tradeTypeId))
+  })
 }

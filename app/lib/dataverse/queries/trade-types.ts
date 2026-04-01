@@ -6,22 +6,7 @@
 
 import { dvGet } from '../client'
 import type { TradeType } from '@/types/database'
-
-interface DvTrade {
-  cr6cd_tradeid: string
-  cr6cd_name: string
-  cr6cd_tradecode?: string
-  cr6cd_color?: string
-}
-
-function toTradeType(dv: DvTrade): TradeType {
-  return {
-    id: dv.cr6cd_tradeid,
-    name: dv.cr6cd_name,
-    code: dv.cr6cd_tradecode ?? dv.cr6cd_name.slice(0, 3).toUpperCase(),
-    color: dv.cr6cd_color,
-  }
-}
+import { type DvTrade, toTradeType } from '../mappers'
 
 export async function getTradeTypes(): Promise<TradeType[]> {
   const res = await dvGet<{ value: DvTrade[] }>(

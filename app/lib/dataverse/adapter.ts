@@ -17,9 +17,9 @@
 import type {
   Project, Gate, ProjectTrade, Mobilization, TradeType, CostCode,
   CostItem, ScopeItem, ScopeDetail, Selection, BidPackage, Task,
-  SequencerData, Expectation, ExpectationCategory, ProjectExpectation, ProjectFile,
+  ProjectExecutionData, SequencerData, Expectation, ExpectationCategory, ProjectExpectation, ProjectFile,
   Company, CompanyType, Contact, ContactRole, ProjectContact,
-  Client, ClientStatus, ChangeOrder, Rfi, Quote, Capability, CompanyCapability,
+  Client, ClientStatus, ChangeOrder, Rfi, Quote, Capability, CompanyCapability, TradeScope,
 } from '@/types/database'
 
 const IS_MOCK = (process.env.DATAVERSE_MODE ?? 'mock') === 'mock'
@@ -33,6 +33,7 @@ async function live() {
     tradeTypes: await import('./queries/trade-types'),
     projectTrades: await import('./queries/project-trades'),
     mobilizations: await import('./queries/mobilizations'),
+    tradeScopes: await import('./queries/trade-scopes'),
     costItems: await import('./queries/cost-items'),
     scopeItems: await import('./queries/scope-items'),
     scopeDetails: await import('./queries/scope-details'),
@@ -207,7 +208,21 @@ export async function getMobilizations(projectId: string): Promise<Mobilization[
     return m.MOCK_MOBILIZATIONS.filter(mob => mob.projectId === projectId)
   }
   const q = await live()
-  return q.mobilizations.getMobilizations(projectId)
+  const projectTrades = await q.projectTrades.getProjectTrades(projectId)
+  return q.mobilizations.getMobilizations(
+    projectId,
+    new Map(projectTrades.map((projectTrade) => [projectTrade.id, projectTrade])),
+  )
+}
+
+function toExecutionMobilizations(mobilizations: Mobilization[]): Mobilization[] {
+  return mobilizations.map((mobilization) => ({
+    ...mobilization,
+    // Sequencing logic derives runtime steps from tradeScopes.
+    // Keep compatibility step blobs off the execution bundle so
+    // the projector has a single authoritative source for steps.
+    steps: [],
+  }))
 }
 
 // ── Sequencer bundle ──────────────────────────────────────────
@@ -224,14 +239,77 @@ export async function getSequencerData(projectId: string): Promise<SequencerData
       mobilizations: m.MOCK_MOBILIZATIONS.filter(mob => mob.projectId === projectId),
     }
   }
-  const [project, gates, projectTrades, mobilizations] = await Promise.all([
-    (async () => { const q = await live(); return q.projects.getProject(projectId) })(),
-    (async () => { const q = await live(); return q.gates.getGates(projectId) })(),
-    (async () => { const q = await live(); return q.projectTrades.getProjectTrades(projectId) })(),
-    (async () => { const q = await live(); return q.mobilizations.getMobilizations(projectId) })(),
+  const q = await live()
+  const [project, gates, projectTrades] = await Promise.all([
+    q.projects.getProject(projectId),
+    q.gates.getGates(projectId),
+    q.projectTrades.getProjectTrades(projectId),
   ])
   if (!project) return null
+  const mobilizations = await q.mobilizations.getMobilizations(
+    projectId,
+    new Map(projectTrades.map((projectTrade) => [projectTrade.id, projectTrade])),
+  )
   return { project, gates, projectTrades, mobilizations }
+}
+
+export async function getSequencerPageData(projectId: string): Promise<{
+  data: SequencerData
+  executionData: ProjectExecutionData
+} | null> {
+  const data = await getSequencerData(projectId)
+  if (!data) return null
+
+  if (IS_MOCK) {
+    return {
+      data,
+      executionData: {
+        ...data,
+        mobilizations: toExecutionMobilizations(data.mobilizations),
+        tradeScopes: [],
+      },
+    }
+  }
+
+  const q = await live()
+  const tradeScopes = await q.tradeScopes.getTradeScopes(
+    data.projectTrades.map((projectTrade) => projectTrade.id),
+    new Map(data.mobilizations.map((mobilization) => [mobilization.id, mobilization])),
+  )
+
+  return {
+    data,
+    executionData: {
+      ...data,
+      mobilizations: toExecutionMobilizations(data.mobilizations),
+      tradeScopes,
+    },
+  }
+}
+
+// ── Sequencer engine input ───────────────────────────────────
+
+export async function getTradeScopes(projectId: string): Promise<TradeScope[]> {
+  if (IS_MOCK) {
+    return []
+  }
+
+  const q = await live()
+  const projectTrades = await q.projectTrades.getProjectTrades(projectId)
+  const mobilizations = await q.mobilizations.getMobilizations(
+    projectId,
+    new Map(projectTrades.map((projectTrade) => [projectTrade.id, projectTrade])),
+  )
+
+  return q.tradeScopes.getTradeScopes(
+    projectTrades.map((projectTrade) => projectTrade.id),
+    new Map(mobilizations.map((mobilization) => [mobilization.id, mobilization])),
+  )
+}
+
+export async function getProjectExecutionData(projectId: string): Promise<ProjectExecutionData | null> {
+  const pageData = await getSequencerPageData(projectId)
+  return pageData?.executionData ?? null
 }
 
 // ── Cost Items ────────────────────────────────────────────────
@@ -463,7 +541,7 @@ export async function getProjectContacts(projectId: string): Promise<ProjectCont
 export async function getClient(clientId: string): Promise<Client | null> {
   if (IS_MOCK) {
     const m = await mock()
-    return m.MOCK_CLIENT.id === clientId ? m.MOCK_CLIENT : null
+    return m.MOCK_CLIENTS.find(client => client.id === clientId) ?? (m.MOCK_CLIENT.id === clientId ? m.MOCK_CLIENT : null)
   }
   return null
 }

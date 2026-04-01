@@ -10,6 +10,7 @@ Important boundary:
 - the core reference docs describe the **target shared architecture**
 - the current sequencer still uses Trevor compatibility surfaces such as `cr6cd_buildphases`, `rlh_projecttrades`, `rlh_tradeitems`, and `cr6cd_mobilizationmarkerses`
 - the target shared model groups action items into mobilizations; it does not treat project scope as direct mobilization contents
+- the current source-of-truth map for the sequencer is documented in `app/SEQUENCER_BACKEND_MAP.md`
 
 ---
 
@@ -20,18 +21,31 @@ Important boundary:
 - Sidebar grouping: `Project`, `Development`, `Execution`, and `Admin`, rendered by `features/projects/project-tabs.tsx`
 - Related execution route: `/projects/[id]/tasks`
 
-The sequencer page is a thin server component. It calls `getSequencerData(id)` from `lib/dataverse/adapter.ts` and renders `features/sequencer/sequencer-board.tsx`.
+The sequencer page is a thin server component. It calls `getSequencerPageData(id)` from `lib/dataverse/adapter.ts` and renders `features/sequencer/sequencer-board.tsx`.
 
 ---
 
 ## Data Contract Used By The Page
 
-`getSequencerData(projectId)` returns:
+The page now carries two related bundles:
 
-- `project`
-- `gates`
-- `projectTrades`
-- `mobilizations`
+- `data`
+  - `project`
+  - `gates`
+  - `projectTrades`
+  - `mobilizations`
+- `executionData`
+  - `project`
+  - `gates`
+  - `projectTrades`
+  - `mobilizations`
+  - `tradeScopes`
+
+Important rule:
+
+- `data` is the compatibility-shaped read bundle used by the current modal/edit flow
+- `executionData` is the canonical engine input used by `features/sequencer/projector.ts`
+- in `executionData`, mobilization compatibility step blobs are intentionally stripped before projection so runtime steps come from `tradeScopes`
 
 Those domain objects come from `types/database.ts`. UI code does not consume raw Dataverse field names.
 
@@ -47,11 +61,16 @@ The checked-in query layer currently reads from these entity sets:
 | Gate | `queries/gates.ts` | `cr6cd_buildphases` |
 | Project trade | `queries/project-trades.ts` | `rlh_projecttrades` |
 | Mobilization | `queries/mobilizations.ts` | `cr6cd_mobilizations` |
-| Mobilization steps | `queries/mobilizations.ts` | `rlh_tradeitems` |
-| Mobilization markers | `queries/mobilizations.ts` | `cr6cd_mobilizationmarkerses` |
+| Trade scope linkage | `queries/trade-scopes.ts` | `rlh_tradescopes` |
 | Action-item list route | `queries/tasks.ts` | `rlh_tasks` |
 
 Trade metadata is expanded through the project-trade query path and ultimately comes from `cr6cd_trades`.
+
+Current important nuance:
+
+- mobilization rows still include compatibility fields such as `cr6cd_stepsjson` and `cr6cd_markersjson`
+- the raw sequencer bundle still carries those values for edit parity
+- the sequencing engine does **not** treat embedded step JSON as authoritative; it derives runtime steps from `tradeScopes`
 
 ---
 
@@ -61,7 +80,9 @@ Trade metadata is expanded through the project-trade query path and ultimately c
 2. The adapter chooses `mock` or `live` mode based on `DATAVERSE_MODE`.
 3. In `mock` mode, data comes from `lib/mock-data.ts`.
 4. In `live` mode, query files in `lib/dataverse/queries/` transform OData responses into clean domain types.
-5. `SequencerBoard` receives fully-shaped props and manages only UI state.
+5. The adapter returns both `data` and `executionData`.
+6. `SequencerBoard` uses `data` for the current edit/save surface and `executionData` for the sequencing engine.
+7. `buildSequence()` delegates to `features/sequencer/projector.ts`, which derives steps and resolved layout from `tradeScopes`.
 
 The layout keeps the sidebar fixed while the sequencer manages its own workspace scrolling inside the main content area.
 
@@ -82,6 +103,7 @@ Current write behavior:
 
 - `mock` mode performs no persistent writes and only revalidates the route
 - `live` mode writes directly through `dvFetch()`
+- compatibility step and marker JSON are still emitted during updates as a Trevor bridge
 - trade items and mobilization markers are replaced wholesale during updates instead of diffed record-by-record
 
 Entity sets used by the write path:
@@ -114,7 +136,8 @@ AZURE_CLIENT_SECRET=...
 
 - The sequencer is implemented and routed as part of the shared app.
 - Action items are a separate peer project view backed by `rlh_tasks`.
-- The target shared model expects sequencer work to be represented as action items assigned to mobilizations, but the current checked-in board still reads legacy trade items and markers for much of that execution detail.
+- The current checked-in board derives runtime sequencing steps from `tradeScopes`, not from embedded mobilization step JSON.
+- The current edit/save surface still carries compatibility step and marker data so Trevor parity can continue while the architecture decision is still being finalized.
 - Change orders exist as a placeholder project route today. RFIs remain part of the target shared architecture but are not a full checked-in project route yet.
 - Files now live at the project level as `/projects/[id]/files` rather than under an execution-only route.
 - If Dataverse metadata changes, update the query and action files first, then update this doc to match.

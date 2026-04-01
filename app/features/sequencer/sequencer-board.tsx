@@ -10,11 +10,28 @@
 //  • Mobilization cards are draggable and resizable (pixel-level)
 // -------------------------------------------------------
 
-import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
-import type { SequencerData, Mobilization, Gate, SequencerUIState } from '@/types/database'
+import { useState, useRef, useCallback, useEffect, useMemo, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
+import type {
+  ProjectExecutionData,
+  SequencerData,
+  Mobilization,
+  SequenceMobilizationProjection,
+  Gate,
+  SequencerUIState,
+  SequenceProjection,
+  UpdateGatePayload,
+} from '@/types/database'
 import { offsetToDate, formatDate } from '@/lib/mock-data'
 import { MobilizationCard } from './mobilization-card'
+import { buildSequence } from './sequence-engine'
 import { MobilizationModal } from './mobilization-modal'
+import {
+  createMobilization as createMobilizationAction,
+  deleteMobilization as deleteMobilizationAction,
+  updateGate as updateGateAction,
+  updateMobilization as updateMobilizationAction,
+} from './actions'
 import { Button } from '@/components/button'
 
 const PX_PER_DAY_DEFAULT = 18
@@ -24,12 +41,29 @@ const LABEL_TOP_PAD = 36
 
 interface SequencerBoardProps {
   data: SequencerData
+  executionData: ProjectExecutionData
+  projection: SequenceProjection
 }
 
-export function SequencerBoard({ data }: SequencerBoardProps) {
+function createGateDrafts(gates: Gate[]) {
+  return Object.fromEntries(
+    gates.map((gate) => [
+      gate.id,
+      {
+        description: gate.description ?? '',
+        lockStatus: gate.lockStatus,
+      },
+    ]),
+  )
+}
+
+export function SequencerBoard({ data, executionData, projection }: SequencerBoardProps) {
   const { project, gates, mobilizations: initialMobs, projectTrades } = data
+  const router = useRouter()
+  const [isPending, startTransition] = useTransition()
 
   const [mobilizations, setMobilizations] = useState<Mobilization[]>(initialMobs)
+  const [gateDrafts, setGateDrafts] = useState(() => createGateDrafts(gates))
   const [ui, setUi] = useState<SequencerUIState>({
     mode: 'sequencing',
     selectedMobilizationId: null,
@@ -39,6 +73,8 @@ export function SequencerBoard({ data }: SequencerBoardProps) {
   })
   const [editingMob, setEditingMob] = useState<Mobilization | null>(null)
   const [activeTradeId, setActiveTradeId] = useState<string | null>(null)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [statusMessage, setStatusMessage] = useState<string | null>(null)
 
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -70,11 +106,40 @@ export function SequencerBoard({ data }: SequencerBoardProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // ── Mutation helpers ──────────────────────────────────
+  useEffect(() => {
+    setMobilizations(initialMobs)
+  }, [initialMobs])
 
-  const updateMobilization = useCallback((updated: Mobilization) => {
-    setMobilizations(prev => prev.map(m => m.id === updated.id ? updated : m))
-  }, [])
+  useEffect(() => {
+    setGateDrafts(createGateDrafts(gates))
+  }, [gates])
+
+  const currentExecutionData = useMemo<ProjectExecutionData>(() => ({
+    ...executionData,
+    mobilizations,
+  }), [executionData, mobilizations])
+
+  const currentProjection = useMemo(
+    () => (mobilizations === initialMobs ? projection : buildSequence(currentExecutionData)),
+    [currentExecutionData, initialMobs, mobilizations, projection],
+  )
+
+  const rawMobilizationById = useMemo(
+    () => new Map(mobilizations.map((mobilization) => [mobilization.id, mobilization])),
+    [mobilizations],
+  )
+
+  const gateProjectionById = useMemo(
+    () => new Map(currentProjection.gates.map((gateProjection) => [gateProjection.gate.id, gateProjection])),
+    [currentProjection],
+  )
+
+  const tradeProjectionById = useMemo(
+    () => new Map(currentProjection.trades.map((tradeProjection) => [tradeProjection.projectTrade.id, tradeProjection])),
+    [currentProjection],
+  )
+
+  // ── Mutation helpers ──────────────────────────────────
 
   const createMobilization = useCallback((gateId: string, startOffset: number) => {
     const id = `mob-${Date.now()}`
@@ -95,10 +160,159 @@ export function SequencerBoard({ data }: SequencerBoardProps) {
     setEditingMob(newMob)
   }, [project.id])
 
+  const runMutation = useCallback((
+    label: string,
+    work: () => Promise<{ ok: boolean; error?: string }>,
+    options?: { onSuccess?: () => void; onError?: () => void },
+  ) => {
+    setErrorMessage(null)
+    setStatusMessage(label)
+
+    startTransition(() => {
+      void (async () => {
+        try {
+          const result = await work()
+
+          if (!result.ok) {
+            options?.onError?.()
+            setErrorMessage(result.error ?? `${label} failed`)
+            setStatusMessage(null)
+            router.refresh()
+            return
+          }
+
+          options?.onSuccess?.()
+          setStatusMessage(null)
+          router.refresh()
+        } catch (error) {
+          options?.onError?.()
+          setErrorMessage(error instanceof Error ? error.message : String(error))
+          setStatusMessage(null)
+          router.refresh()
+        }
+      })()
+    })
+  }, [router])
+
+  const saveMobilization = useCallback((updated: Mobilization) => {
+    const persisted = initialMobs.some((mobilization) => mobilization.id === updated.id)
+
+    if (!persisted) {
+      runMutation(
+        'Saving mobilization to Dataverse...',
+        () => createMobilizationAction({
+          projectId: updated.projectId,
+          gateId: updated.gateId,
+          projectTradeId: updated.projectTradeId,
+          why: updated.why,
+          startOffset: updated.startOffset,
+          duration: updated.duration,
+          steps: updated.steps.map((step, index) => ({
+            ...step,
+            sortOrder: step.sortOrder ?? index + 1,
+          })),
+          markers: updated.markers,
+        }),
+        {
+          onSuccess: () => {
+            setEditingMob(null)
+          },
+        },
+      )
+      return
+    }
+
+    const previous = mobilizations.find((mobilization) => mobilization.id === updated.id)
+    setMobilizations((current) => current.map((mobilization) => (
+      mobilization.id === updated.id ? updated : mobilization
+    )))
+    setEditingMob((current) => current?.id === updated.id ? updated : current)
+
+    runMutation(
+      'Updating mobilization in Dataverse...',
+      () => updateMobilizationAction({
+        id: updated.id,
+        gateId: updated.gateId,
+        projectTradeId: updated.projectTradeId,
+        why: updated.why,
+        startOffset: updated.startOffset,
+        duration: updated.duration,
+        steps: updated.steps.map((step, index) => ({
+          ...step,
+          sortOrder: step.sortOrder ?? index + 1,
+        })),
+        markers: updated.markers,
+      }, project.id),
+      {
+        onSuccess: () => {
+          setEditingMob(null)
+        },
+        onError: () => {
+          if (!previous) return
+          setMobilizations((current) => current.map((mobilization) => (
+            mobilization.id === previous.id ? previous : mobilization
+          )))
+          setEditingMob((current) => current?.id === previous.id ? previous : current)
+        },
+      },
+    )
+  }, [initialMobs, mobilizations, project.id, runMutation])
+
+  const updateMobilizationTimeline = useCallback((
+    mobilizationId: string,
+    timeline: { startOffset: number; duration: number },
+  ) => {
+    const rawMobilization = rawMobilizationById.get(mobilizationId)
+    if (!rawMobilization) return
+
+    saveMobilization({
+      ...rawMobilization,
+      startOffset: timeline.startOffset,
+      duration: timeline.duration,
+    })
+  }, [rawMobilizationById, saveMobilization])
+
   const deleteMobilization = useCallback((mobId: string) => {
-    setMobilizations(prev => prev.filter(m => m.id !== mobId))
+    const previous = mobilizations
+    const existing = initialMobs.some((mobilization) => mobilization.id === mobId)
+    setMobilizations((current) => current.filter((mobilization) => mobilization.id !== mobId))
     setEditingMob(null)
-  }, [])
+
+    if (!existing) return
+
+    runMutation(
+      'Deleting mobilization from Dataverse...',
+      () => deleteMobilizationAction(mobId, project.id),
+      {
+        onError: () => {
+          setMobilizations(previous)
+        },
+      },
+    )
+  }, [initialMobs, mobilizations, project.id, runMutation])
+
+  const saveGate = useCallback((payload: UpdateGatePayload) => {
+    const gate = gates.find((candidate) => candidate.id === payload.id)
+    if (!gate) return
+
+    const previous = {
+      description: gate.description ?? '',
+      lockStatus: gate.lockStatus,
+    }
+
+    runMutation(
+      'Saving gate to Dataverse...',
+      () => updateGateAction(payload, project.id),
+      {
+        onError: () => {
+          setGateDrafts((current) => ({
+            ...current,
+            [payload.id]: previous,
+          }))
+        },
+      },
+    )
+  }, [gates, project.id, runMutation])
 
   // ── Zoom ─────────────────────────────────────────────
 
@@ -107,8 +321,8 @@ export function SequencerBoard({ data }: SequencerBoardProps) {
 
   // ── M-number assignment (pre-computed map) ──────────
   const mobNumbers = useMemo(() => {
-    const byTrade = new Map<string, Mobilization[]>()
-    for (const m of mobilizations) {
+    const byTrade = new Map<string, SequenceMobilizationProjection[]>()
+    for (const m of currentProjection.mobilizations) {
       if (!m.tradeType.id) continue
       const arr = byTrade.get(m.tradeType.id) ?? []
       arr.push(m)
@@ -116,11 +330,11 @@ export function SequencerBoard({ data }: SequencerBoardProps) {
     }
     const result = new Map<string, string>()
     for (const [, mobs] of byTrade) {
-      mobs.sort((a, b) => a.startOffset - b.startOffset)
+      mobs.sort((a, b) => a.resolvedStartOffset - b.resolvedStartOffset)
       mobs.forEach((m, i) => result.set(m.id, `M${i + 1}`))
     }
     return result
-  }, [mobilizations])
+  }, [currentProjection.mobilizations])
 
   function getMobNumber(mob: Mobilization): string {
     return mobNumbers.get(mob.id) ?? 'M?'
@@ -148,15 +362,15 @@ export function SequencerBoard({ data }: SequencerBoardProps) {
   }, [startDate, horizonDays])
 
   // ── Lane assignment (memoized per gate) ─────────────
-  const assignLanesForMobs = useCallback((mobs: Mobilization[]): Map<string, number> => {
+  const assignLanesForMobs = useCallback((mobs: SequenceMobilizationProjection[]): Map<string, number> => {
     const result = new Map<string, number>()
     const lanes: [number, number][][] = []
     const gapDays = 10 / ui.pxPerDay
 
-    const sorted = [...mobs].sort((a, b) => a.startOffset - b.startOffset)
+    const sorted = [...mobs].sort((a, b) => a.resolvedStartOffset - b.resolvedStartOffset)
     for (const mob of sorted) {
-      const start = mob.startOffset
-      const end = mob.startOffset + mob.duration
+      const start = mob.resolvedStartOffset
+      const end = mob.resolvedEndOffset
       let laneIdx = 0
       for (; laneIdx < lanes.length; laneIdx++) {
         const last = lanes[laneIdx][lanes[laneIdx].length - 1]
@@ -171,9 +385,9 @@ export function SequencerBoard({ data }: SequencerBoardProps) {
 
   // Pre-compute lanes and row heights for all gates
   const gateLaneData = useMemo(() => {
-    const result = new Map<string, { lanes: Map<string, number>; mobs: Mobilization[]; rowHeight: number }>()
+    const result = new Map<string, { lanes: Map<string, number>; mobs: SequenceMobilizationProjection[]; rowHeight: number }>()
     for (const gate of gates) {
-      const gateMobs = mobilizations.filter(m => m.gateId === gate.id)
+      const gateMobs = gateProjectionById.get(gate.id)?.mobilizations ?? []
       if (gateMobs.length === 0) {
         result.set(gate.id, { lanes: new Map(), mobs: gateMobs, rowHeight: ROW_MIN_H + LABEL_TOP_PAD })
       } else {
@@ -184,7 +398,7 @@ export function SequencerBoard({ data }: SequencerBoardProps) {
       }
     }
     return result
-  }, [assignLanesForMobs, gates, mobilizations])
+  }, [assignLanesForMobs, gateProjectionById, gates])
 
   const HEADER_H = 40
 
@@ -289,6 +503,11 @@ export function SequencerBoard({ data }: SequencerBoardProps) {
         {gates.map(gate => {
           const gateData = gateLaneData.get(gate.id) ?? { lanes: new Map(), mobs: [], rowHeight: ROW_MIN_H + LABEL_TOP_PAD }
           const { lanes, mobs: gateMobs, rowHeight: rowH } = gateData
+          const gateDraft = gateDrafts[gate.id] ?? {
+            description: gate.description ?? '',
+            lockStatus: gate.lockStatus,
+          }
+          const isGateLocked = gateDraft.lockStatus !== 'unlocked'
 
           return (
             <div
@@ -325,7 +544,21 @@ export function SequencerBoard({ data }: SequencerBoardProps) {
                 </div>
 
                 <textarea
-                  defaultValue={gate.description ?? ''}
+                  value={gateDraft.description}
+                  onChange={(event) => {
+                    const description = event.target.value
+                    setGateDrafts((current) => ({
+                      ...current,
+                      [gate.id]: {
+                        ...(current[gate.id] ?? { description: gate.description ?? '', lockStatus: gate.lockStatus }),
+                        description,
+                      },
+                    }))
+                  }}
+                  onBlur={() => {
+                    if (gateDraft.description === (gate.description ?? '')) return
+                    saveGate({ id: gate.id, description: gateDraft.description })
+                  }}
                   placeholder="Describe the intent and completion condition of this gate..."
                   rows={3}
                   style={{
@@ -363,7 +596,24 @@ export function SequencerBoard({ data }: SequencerBoardProps) {
                 </div>
 
                 <label style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 8, cursor: 'pointer' }}>
-                  <input type="checkbox" disabled style={{ margin: 0 }} />
+                  <input
+                    type="checkbox"
+                    checked={isGateLocked}
+                    onChange={(event) => {
+                      const lockStatus = event.target.checked ? 'soft_lock' : 'unlocked'
+                      setGateDrafts((current) => ({
+                        ...current,
+                        [gate.id]: {
+                          ...(current[gate.id] ?? { description: gate.description ?? '', lockStatus: gate.lockStatus }),
+                          lockStatus,
+                        },
+                      }))
+                      if (lockStatus !== gate.lockStatus) {
+                        saveGate({ id: gate.id, lockStatus })
+                      }
+                    }}
+                    style={{ margin: 0 }}
+                  />
                   <span style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>Lock gate dates</span>
                 </label>
               </div>
@@ -403,22 +653,23 @@ export function SequencerBoard({ data }: SequencerBoardProps) {
                 )}
 
                 {/* Mob cards */}
-                {gateMobs.map(mob => (
-                  <MobilizationCard
-                    key={mob.id}
-                    mobilization={mob}
-                    lane={lanes.get(mob.id) ?? 0}
-                    pxPerDay={ui.pxPerDay}
-                    projectStartDate={startDate}
-                    mobNumber={getMobNumber(mob)}
-                    labelTopPad={LABEL_TOP_PAD}
-                    onClick={() => setEditingMob(mob)}
-                    onUpdate={updated => {
-                      updateMobilization(updated)
-                      setEditingMob(prev => prev?.id === updated.id ? updated : prev)
-                    }}
-                  />
-                ))}
+                {gateMobs.map(mob => {
+                  const rawMobilization = rawMobilizationById.get(mob.id) ?? mob
+
+                  return (
+                    <MobilizationCard
+                      key={mob.id}
+                      mobilization={mob}
+                      lane={lanes.get(mob.id) ?? 0}
+                      pxPerDay={ui.pxPerDay}
+                      projectStartDate={startDate}
+                      mobNumber={getMobNumber(mob)}
+                      labelTopPad={LABEL_TOP_PAD}
+                      onClick={() => setEditingMob(rawMobilization)}
+                      onUpdateTimeline={(timeline) => updateMobilizationTimeline(mob.id, timeline)}
+                    />
+                  )
+                })}
               </div>
             </div>
           )
@@ -476,7 +727,7 @@ export function SequencerBoard({ data }: SequencerBoardProps) {
             flexShrink: 0,
           }}>
             {projectTrades.map(pt => {
-              const tradeMobs = mobilizations.filter(m => m.projectTradeId === pt.id)
+              const tradeMobs = tradeProjectionById.get(pt.id)?.mobilizations ?? []
               const markerCount = tradeMobs.reduce((acc, m) => acc + m.markers.length, 0)
               const isActive = activeTradeId === pt.id
               return (
@@ -520,8 +771,8 @@ export function SequencerBoard({ data }: SequencerBoardProps) {
             <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {gates.map(gate => {
-                  const gateMobs = mobilizations.filter(
-                    m => m.projectTradeId === activeTrade.id && m.gateId === gate.id
+                  const gateMobs = (tradeProjectionById.get(activeTrade.id)?.mobilizations ?? []).filter(
+                    m => m.gateId === gate.id
                   )
                   return (
                     <TradeGateBucket
@@ -551,7 +802,7 @@ export function SequencerBoard({ data }: SequencerBoardProps) {
                         setMobilizations(prev => [...prev, newMob])
                         setEditingMob(newMob)
                       }}
-                      onMobClick={mob => setEditingMob(mob)}
+                      onMobClick={mob => setEditingMob(rawMobilizationById.get(mob.id) ?? mob)}
                     />
                   )
                 })}
@@ -649,10 +900,76 @@ export function SequencerBoard({ data }: SequencerBoardProps) {
             variant="primary"
             size="sm"
             onClick={() => createMobilization(gates[0]?.id ?? '', 0)}
+            disabled={gates.length === 0 || isPending}
           >
             Add Mobilization
           </Button>
         </div>
+      </div>
+
+      <div
+        style={{
+          flexShrink: 0,
+          padding: '8px 16px',
+          borderBottom: '1px solid var(--border-light)',
+          background: 'var(--surface-muted)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 11, color: 'var(--text-tertiary)' }}>
+            <span>{currentProjection.totals.gateCount} gates</span>
+            <span>{currentProjection.totals.tradeCount} trades</span>
+            <span>{currentProjection.totals.mobilizationCount} mobilizations</span>
+            <span>{currentProjection.totals.stepCount} scope steps</span>
+            <span>{currentProjection.totals.markerCount} markers</span>
+            <span>{currentProjection.totals.scopeCount} trade scopes</span>
+          </div>
+          <span style={{ fontSize: 11, color: errorMessage ? 'var(--danger)' : 'var(--text-tertiary)' }}>
+            {errorMessage ?? statusMessage ?? (isPending ? 'Syncing live Dataverse changes...' : 'Live projection built from server data')}
+          </span>
+        </div>
+
+        <details style={{ marginTop: 8 }}>
+          <summary style={{ cursor: 'pointer', fontSize: 11, color: 'var(--text-secondary)' }}>
+            Execution Input
+          </summary>
+          <pre
+            style={{
+              marginTop: 8,
+              padding: 12,
+              borderRadius: 6,
+              border: '1px solid var(--border-light)',
+              background: 'var(--surface-elevated)',
+              color: 'var(--text-secondary)',
+              fontSize: 11,
+              overflow: 'auto',
+              maxHeight: 240,
+            }}
+          >
+            {JSON.stringify(currentExecutionData, null, 2)}
+          </pre>
+        </details>
+
+        <details style={{ marginTop: 8 }}>
+          <summary style={{ cursor: 'pointer', fontSize: 11, color: 'var(--text-secondary)' }}>
+            Sequence Projection
+          </summary>
+          <pre
+            style={{
+              marginTop: 8,
+              padding: 12,
+              borderRadius: 6,
+              border: '1px solid var(--border-light)',
+              background: 'var(--surface-elevated)',
+              color: 'var(--text-secondary)',
+              fontSize: 11,
+              overflow: 'auto',
+              maxHeight: 240,
+            }}
+          >
+            {JSON.stringify(currentProjection, null, 2)}
+          </pre>
+        </details>
       </div>
 
       {/* Surface */}
@@ -665,12 +982,10 @@ export function SequencerBoard({ data }: SequencerBoardProps) {
           projectTrades={projectTrades}
           gates={gates}
           projectStartDate={startDate}
-          onSave={updated => {
-            updateMobilization(updated)
-            setEditingMob(null)
-          }}
+          isSaving={isPending}
+          onSave={saveMobilization}
           onDelete={() => deleteMobilization(editingMob.id)}
-          onClose={() => setEditingMob(null)}
+          onClose={() => { if (!isPending) setEditingMob(null) }}
         />
       )}
     </div>
@@ -683,10 +998,10 @@ export function SequencerBoard({ data }: SequencerBoardProps) {
 
 interface TradeGateBucketProps {
   gate: Gate
-  mobs: Mobilization[]
+  mobs: SequenceMobilizationProjection[]
   projectStartDate: string
   onAddMob: () => void
-  onMobClick: (mob: Mobilization) => void
+  onMobClick: (mob: SequenceMobilizationProjection) => void
 }
 
 function TradeGateBucket({ gate, mobs, projectStartDate, onAddMob, onMobClick }: TradeGateBucketProps) {
@@ -733,8 +1048,8 @@ function TradeGateBucket({ gate, mobs, projectStartDate, onAddMob, onMobClick }:
       {mobs.length > 0 && (
         <div style={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
           {mobs.map(mob => {
-            const startD = offsetToDate(mob.startOffset, projectStartDate)
-            const endD   = offsetToDate(mob.startOffset + mob.duration, projectStartDate)
+            const startD = offsetToDate(mob.resolvedStartOffset, projectStartDate)
+            const endD   = offsetToDate(mob.resolvedEndOffset, projectStartDate)
             return (
               <div
                 key={mob.id}

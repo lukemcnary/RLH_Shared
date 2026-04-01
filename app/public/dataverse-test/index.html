@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dataverse Test</title>
+  <script src="https://alcdn.msauth.net/browser/2.38.1/js/msal-browser.min.js"></script>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f3f2;
+      --surface: #faf9f8;
+      --surface-muted: #f1f0ef;
+      --text: #1a1a1a;
+      --muted: #6b6560;
+      --border: #dcdbd9;
+      --accent: #4a7c6f;
+      --accent-hover: #3d6b5a;
+      --danger: #b44d4d;
+      --shadow: 0 4px 16px rgba(36, 36, 34, 0.1);
+      --radius: 8px;
+      font-family: "Avenir Next", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    .panel {
+      width: min(920px, 100%);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .header {
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(74, 124, 111, 0.08), rgba(74, 124, 111, 0.02));
+    }
+
+    .title {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    .sub {
+      margin: 8px 0 0;
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      padding: 20px 24px 12px;
+      align-items: center;
+    }
+
+    button {
+      border: 0;
+      border-radius: 6px;
+      padding: 10px 16px;
+      font: inherit;
+      cursor: pointer;
+      transition: background 150ms ease;
+    }
+
+    .primary {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .primary:hover {
+      background: var(--accent-hover);
+    }
+
+    .secondary {
+      background: var(--surface-muted);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .status {
+      margin-left: auto;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .callout {
+      margin: 0 24px 16px;
+      padding: 12px 14px;
+      border-radius: 6px;
+      background: rgba(180, 77, 77, 0.08);
+      color: var(--danger);
+      border: 1px solid rgba(180, 77, 77, 0.18);
+      display: none;
+      line-height: 1.5;
+    }
+
+    .callout.visible {
+      display: block;
+    }
+
+    .grouped {
+      padding: 20px 24px 8px;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    .grouped h2 {
+      margin: 0 0 12px;
+      font-size: 18px;
+    }
+
+    .grouped-empty {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .trade-group {
+      margin-bottom: 16px;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface-muted);
+    }
+
+    .trade-group h3 {
+      margin: 0 0 8px;
+      font-size: 15px;
+    }
+
+    .trade-group ul {
+      margin: 0;
+      padding-left: 18px;
+    }
+
+    .trade-group li {
+      margin: 4px 0;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .mobilization-controls {
+      display: flex;
+      gap: 6px;
+      margin: 6px 0 8px;
+    }
+
+    .timeline-shift {
+      padding: 4px 10px;
+      font-size: 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text);
+    }
+
+    .timeline-shell {
+      margin: 8px 0 10px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+
+    .timeline-grid {
+      display: flex;
+      margin-bottom: 6px;
+      color: var(--muted);
+      font-size: 10px;
+    }
+
+    .timeline-grid-cell {
+      flex: 0 0 auto;
+      text-align: left;
+      border-right: 1px solid #d0cfcd;
+      padding-right: 4px;
+    }
+
+    .timeline-track {
+      position: relative;
+      height: 30px;
+      border-radius: 6px;
+      background: rgba(74, 124, 111, 0.06);
+      border: 1px solid rgba(74, 124, 111, 0.12);
+    }
+
+    .timeline-bar {
+      position: absolute;
+      top: 4px;
+      height: 20px;
+      border-radius: 4px;
+      background: #4a7c6f;
+      color: #fff;
+      font-size: 12px;
+      padding: 2px 8px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+    }
+
+    pre {
+      margin: 0;
+      padding: 20px 24px 24px;
+      min-height: 280px;
+      max-height: 60vh;
+      overflow: auto;
+      border-top: 1px solid var(--border);
+      background: #f8f7f6;
+      font-size: 13px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+  </style>
+</head>
+<body>
+  <section class="panel">
+    <div class="header">
+      <h1 class="title">Dataverse Connection Test</h1>
+      <p class="sub">
+        Quick browser-auth smoke test for the DEV Dataverse environment. This page is for manual verification only.
+      </p>
+    </div>
+
+    <div class="controls">
+      <button id="btnLogin" class="primary" type="button">Login</button>
+      <button id="btnLoad" class="secondary" type="button">Load Raw Data</button>
+      <span id="status" class="status">Waiting for sign-in</span>
+    </div>
+
+    <div id="callout" class="callout"></div>
+
+    <div id="grouped" class="grouped">
+      <h2>Trades → Mobilizations → Movable Timeline Bars</h2>
+      <p class="grouped-empty">Load raw data to derive mobilization steps, calculate duration, render timeline bars, and shift an entire mobilization left or right as one unit.</p>
+    </div>
+
+    <pre id="output">Open this page through the app at /dataverse-test. Then click Login and Load Raw Data to inspect projects, mobilizations, scopes, project trades, the derived timeline, visual bars, and mobilization offsets.</pre>
+  </section>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
