@@ -69,10 +69,29 @@ async function getToken(): Promise<string> {
   return _cachedToken.value
 }
 
+// ─── Retry helper ────────────────────────────────────────────
+// Retries on 429 (rate limit) and 5xx (server errors) with
+// exponential backoff. Does NOT retry on 4xx client errors
+// (bad request, auth failures, etc.) since those won't self-heal.
+
+const MAX_RETRIES = 3
+const BASE_DELAY_MS = 500
+
+function isRetryable(status: number): boolean {
+  return status === 429 || status >= 500
+}
+
+async function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 // ─── Public fetch wrapper ─────────────────────────────────────
 
 /**
  * dvFetch — authenticated OData request to Dataverse.
+ *
+ * Automatically retries on 429 and 5xx errors with exponential
+ * backoff (up to 3 retries). 4xx errors fail immediately.
  *
  * @param path   OData path relative to /api/data/v9.2/ — e.g.
  *               "cr6cd_projects?$filter=..."
@@ -81,26 +100,40 @@ async function getToken(): Promise<string> {
 export async function dvFetch(path: string, options?: RequestInit): Promise<Response> {
   const token = await getToken()
   const url = `${DATAVERSE_URL}/api/data/v9.2/${path}`
+  const method = options?.method ?? 'GET'
 
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      Authorization:       `Bearer ${token}`,
-      Accept:              'application/json',
-      'Content-Type':      'application/json',
-      'OData-MaxVersion':  '4.0',
-      'OData-Version':     '4.0',
-      Prefer:              'odata.include-annotations="*"',
-      ...options?.headers,
-    },
-  })
+  let lastError: Error | null = null
 
-  if (!res.ok) {
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1)
+      console.warn(`[dvFetch] retry ${attempt}/${MAX_RETRIES} for ${method} /${path} after ${delay}ms`)
+      await sleep(delay)
+    }
+
+    const res = await fetch(url, {
+      ...options,
+      headers: {
+        Authorization:       `Bearer ${token}`,
+        Accept:              'application/json',
+        'Content-Type':      'application/json',
+        'OData-MaxVersion':  '4.0',
+        'OData-Version':     '4.0',
+        Prefer:              'odata.include-annotations="*"',
+        ...options?.headers,
+      },
+    })
+
+    if (res.ok) return res
+
     const text = await res.text()
-    throw new Error(`Dataverse ${options?.method ?? 'GET'} /${path} failed (${res.status}): ${text}`)
+    lastError = new Error(`Dataverse ${method} /${path} failed (${res.status}): ${text}`)
+
+    // Don't retry client errors — they won't self-heal
+    if (!isRetryable(res.status)) throw lastError
   }
 
-  return res
+  throw lastError ?? new Error(`Dataverse ${method} /${path} failed after ${MAX_RETRIES} retries`)
 }
 
 /**
