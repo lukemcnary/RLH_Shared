@@ -30,6 +30,8 @@ import { revalidatePath } from 'next/cache'
 import { dvFetch } from '@/lib/dataverse/client'
 import type {
   CreateMobilizationPayload,
+  MobilizationMarker,
+  TradeItem,
   UpdateMobilizationPayload,
   UpdateGatePayload,
 } from '@/types/database'
@@ -55,10 +57,29 @@ const GATE_LOCK_TO_DV: Record<string, number> = {
   hard_lock: 936880002,
 }
 
+const TRADE_ITEM_TYPE_TO_DV: Record<string, number> = {
+  prep:     936880000,
+  decision: 936880001,
+  question: 936880002,
+  action:   936880003,
+  risk:     936880004,
+}
+
+const TRADE_ITEM_STATUS_TO_DV: Record<string, number> = {
+  open:   936880000,
+  closed: 936880001,
+}
+
 function getDataverseRecordIdFromHeader(response: Response) {
   const entityId = response.headers.get('OData-EntityId') ?? response.headers.get('odata-entityid') ?? ''
   const match = entityId.match(/\(([0-9a-fA-F-]{36})\)$/)
   return match ? match[1] : null
+}
+
+function mobilizationFilter(mobilizationId: string, fields: string[]) {
+  return fields
+    .map((field) => `${field} eq guid'${mobilizationId}'`)
+    .join(' or ')
 }
 
 function serializeSteps(steps: CreateMobilizationPayload['steps']) {
@@ -141,6 +162,101 @@ function toMockMarkers(
   }))
 }
 
+async function replaceTradeItems(
+  mobilizationId: string,
+  steps: Omit<TradeItem, 'mobilizationId'>[] = [],
+): Promise<void> {
+  const existingRes = await dvFetch(
+    `rlh_tradeitems?$select=rlh_tradeitemid&$filter=${mobilizationFilter(mobilizationId, [
+      '_rlh_mobilization_value',
+      '_cr6cd_mobilizationsid_value',
+    ])}`
+  )
+  const existing = (await existingRes.json()) as { value: { rlh_tradeitemid: string }[] }
+
+  await Promise.all(
+    existing.value.map((tradeItem) =>
+      dvFetch(`rlh_tradeitems(${tradeItem.rlh_tradeitemid})`, { method: 'DELETE' })
+    )
+  )
+
+  for (const [index, step] of steps.entries()) {
+    const body: Record<string, unknown> = {
+      rlh_name: step.name,
+      rlh_sortorder: step.sortOrder ?? index + 1,
+      'rlh_mobilization@odata.bind': `/cr6cd_mobilizations(${mobilizationId})`,
+    }
+
+    if (step.notes !== undefined) body.rlh_notes = step.notes
+    if (step.type !== undefined) body.rlh_type = TRADE_ITEM_TYPE_TO_DV[step.type]
+    if (step.status !== undefined) body.rlh_status = TRADE_ITEM_STATUS_TO_DV[step.status]
+
+    await dvFetch('rlh_tradeitems', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+  }
+}
+
+async function replaceMobilizationMarkers(
+  mobilizationId: string,
+  markers: Omit<MobilizationMarker, 'mobilizationId'>[] = [],
+): Promise<void> {
+  const existingRes = await dvFetch(
+    `cr6cd_mobilizationmarkerses?$select=cr6cd_mobilizationmarkersid&$filter=${mobilizationFilter(mobilizationId, [
+      '_cr720_mobilization_value',
+      '_cr6cd_mobilization_value',
+      '_cr6cd_mobilizationsid_value',
+    ])}`
+  )
+  const existing = (await existingRes.json()) as { value: { cr6cd_mobilizationmarkersid: string }[] }
+
+  await Promise.all(
+    existing.value.map((marker) =>
+      dvFetch(`cr6cd_mobilizationmarkerses(${marker.cr6cd_mobilizationmarkersid})`, { method: 'DELETE' })
+    )
+  )
+
+  for (const marker of markers) {
+    const body: Record<string, unknown> = {
+      cr6cd_name: marker.label,
+      rlh_position: marker.position,
+      'cr6cd_mobilization@odata.bind': `/cr6cd_mobilizations(${mobilizationId})`,
+    }
+
+    if (marker.notes !== undefined) body.cr6cd_notes = marker.notes
+
+    await dvFetch('cr6cd_mobilizationmarkerses', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+  }
+}
+
+async function syncCompatibilityChildRecords(
+  mobilizationId: string,
+  payload: {
+    steps?: CreateMobilizationPayload['steps'] | UpdateMobilizationPayload['steps']
+    markers?: CreateMobilizationPayload['markers'] | UpdateMobilizationPayload['markers']
+  },
+) {
+  if (payload.steps !== undefined) {
+    try {
+      await replaceTradeItems(mobilizationId, payload.steps)
+    } catch (error) {
+      console.warn('[syncCompatibilityChildRecords] trade item sync skipped', error)
+    }
+  }
+
+  if (payload.markers !== undefined) {
+    try {
+      await replaceMobilizationMarkers(mobilizationId, payload.markers)
+    } catch (error) {
+      console.warn('[syncCompatibilityChildRecords] marker sync skipped', error)
+    }
+  }
+}
+
 
 // ─── Mobilization mutations ───────────────────────────────────
 
@@ -177,6 +293,9 @@ export async function createMobilization(
   try {
     const res = await dvFetch('cr6cd_mobilizations', {
       method: 'POST',
+      headers: {
+        Prefer: 'return=representation',
+      },
       body: JSON.stringify(
         buildMobilizationPayload({
           ...payload,
@@ -186,8 +305,18 @@ export async function createMobilization(
       ),
     })
 
+    const mobilizationId = getDataverseRecordIdFromHeader(res)
+    if (mobilizationId) {
+      await syncCompatibilityChildRecords(mobilizationId, {
+        steps: payload.steps ?? [],
+        markers: payload.markers ?? [],
+      })
+    } else if ((payload.steps?.length ?? 0) > 0 || (payload.markers?.length ?? 0) > 0) {
+      console.warn('[createMobilization] compatibility child sync skipped because the created mobilization id was unavailable')
+    }
+
     revalidatePath(projectPath(payload.projectId))
-    return { ok: true, id: getDataverseRecordIdFromHeader(res) ?? undefined }
+    return { ok: true, id: mobilizationId ?? undefined }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     console.error('[createMobilization]', msg)
@@ -250,6 +379,11 @@ export async function updateMobilization(
       })
     }
 
+    await syncCompatibilityChildRecords(payload.id, {
+      steps: payload.steps,
+      markers: payload.markers,
+    })
+
     revalidatePath(projectPath(projectId))
     return { ok: true }
   } catch (err) {
@@ -282,7 +416,10 @@ export async function deleteMobilization(
   try {
     try {
       const tradeItemsRes = await dvFetch(
-        `rlh_tradeitems?$select=rlh_tradeitemid&$filter=_rlh_mobilization_value eq guid'${mobilizationId}'`
+        `rlh_tradeitems?$select=rlh_tradeitemid&$filter=${mobilizationFilter(mobilizationId, [
+          '_rlh_mobilization_value',
+          '_cr6cd_mobilizationsid_value',
+        ])}`
       )
       const tradeItems = (await tradeItemsRes.json()) as { value: { rlh_tradeitemid: string }[] }
       await Promise.all(
@@ -296,7 +433,11 @@ export async function deleteMobilization(
 
     try {
       const markersRes = await dvFetch(
-        `cr6cd_mobilizationmarkerses?$select=cr6cd_mobilizationmarkersid&$filter=_cr720_mobilization_value eq guid'${mobilizationId}'`
+        `cr6cd_mobilizationmarkerses?$select=cr6cd_mobilizationmarkersid&$filter=${mobilizationFilter(mobilizationId, [
+          '_cr720_mobilization_value',
+          '_cr6cd_mobilization_value',
+          '_cr6cd_mobilizationsid_value',
+        ])}`
       )
       const markers = (await markersRes.json()) as { value: { cr6cd_mobilizationmarkersid: string }[] }
       await Promise.all(

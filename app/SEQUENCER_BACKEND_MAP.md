@@ -56,10 +56,10 @@ It answers one question:
 
 ---
 
-## Decision Still Pending With Trevor
+## Closed Decision
 
-The open architecture decision is **not** whether the app can derive steps. It already can.
+Luke and Trevor approved the source-of-truth rule on `2026-04-02`.
 
-The decision is:
+The rule is:
 
-**Do we agree that scopes/relational records are the authoritative source for sequencer structure, with compatibility JSON treated as a temporary bridge only?**
+**Scopes and other relational records are the authoritative sequencer facts. Compatibility JSON and legacy child step/marker rows remain temporary bridge surfaces only.**

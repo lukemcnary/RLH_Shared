@@ -62,6 +62,8 @@ The checked-in query layer currently reads from these entity sets:
 | Project trade | `queries/project-trades.ts` | `rlh_projecttrades` |
 | Mobilization | `queries/mobilizations.ts` | `cr6cd_mobilizations` |
 | Trade scope linkage | `queries/trade-scopes.ts` | `rlh_tradescopes` |
+| Compatibility step bridge | `queries/mobilizations.ts` | `rlh_tradeitems` |
+| Compatibility marker bridge | `queries/mobilizations.ts` | `cr6cd_mobilizationmarkerses` |
 | Action-item list route | `queries/tasks.ts` | `rlh_tasks` |
 
 Trade metadata is expanded through the project-trade query path and ultimately comes from `cr6cd_trades`.
@@ -70,6 +72,7 @@ Current important nuance:
 
 - mobilization rows still include compatibility fields such as `cr6cd_stepsjson` and `cr6cd_markersjson`
 - the raw sequencer bundle still carries those values for edit parity
+- when legacy child trade-item or marker rows exist, the compatibility read bundle uses them first and falls back to embedded JSON when needed
 - the sequencing engine does **not** treat embedded step JSON as authoritative; it derives runtime steps from `tradeScopes`
 
 ---
@@ -104,6 +107,7 @@ Current write behavior:
 - `mock` mode performs no persistent writes and only revalidates the route
 - `live` mode writes directly through `dvFetch()`
 - compatibility step and marker JSON are still emitted during updates as a Trevor bridge
+- legacy `rlh_tradeitems` and `cr6cd_mobilizationmarkerses` rows are also rewritten as a temporary Trevor bridge
 - trade items and mobilization markers are replaced wholesale during updates instead of diffed record-by-record
 
 Entity sets used by the write path:
@@ -137,7 +141,7 @@ AZURE_CLIENT_SECRET=...
 - The sequencer is implemented and routed as part of the shared app.
 - Action items are a separate peer project view backed by `rlh_tasks`.
 - The current checked-in board derives runtime sequencing steps from `tradeScopes`, not from embedded mobilization step JSON.
-- The current edit/save surface still carries compatibility step and marker data so Trevor parity can continue while the architecture decision is still being finalized.
+- The current edit/save surface still carries compatibility step and marker data so Trevor parity can continue while the closed source-of-truth decision is enforced.
 - Change orders exist as a placeholder project route today. RFIs remain part of the target shared architecture but are not a full checked-in project route yet.
 - Files now live at the project level as `/projects/[id]/files` rather than under an execution-only route.
 - If Dataverse metadata changes, update the query and action files first, then update this doc to match.

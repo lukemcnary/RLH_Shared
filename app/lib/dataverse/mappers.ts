@@ -80,6 +80,23 @@ function numberOrUndefined(value: unknown) {
 }
 
 function normalizeTradeItemType(value: unknown): TradeItemType | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    switch (value) {
+      case 936880000:
+        return 'prep'
+      case 936880001:
+        return 'decision'
+      case 936880002:
+        return 'question'
+      case 936880003:
+        return 'action'
+      case 936880004:
+        return 'risk'
+      default:
+        return undefined
+    }
+  }
+
   const normalized = typeof value === 'string' ? value.trim().toLowerCase() : ''
   switch (normalized) {
     case 'prep':
@@ -94,6 +111,17 @@ function normalizeTradeItemType(value: unknown): TradeItemType | undefined {
 }
 
 function normalizeTradeItemStatus(value: unknown): TradeItemStatus | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    switch (value) {
+      case 936880000:
+        return 'open'
+      case 936880001:
+        return 'closed'
+      default:
+        return undefined
+    }
+  }
+
   const normalized = typeof value === 'string' ? value.trim().toLowerCase() : ''
   switch (normalized) {
     case 'open':
@@ -365,8 +393,8 @@ export interface DvTradeItem {
   rlh_newcolumn?: string
   rlh_notes?: string
   rlh_sortorder?: number
-  rlh_type?: string
-  rlh_status?: string
+  rlh_type?: string | number
+  rlh_status?: string | number
 }
 
 export interface DvTradeScope {
@@ -383,6 +411,7 @@ export interface DvTradeScope {
 export interface DvMobilizationMarker {
   cr6cd_mobilizationmarkersid: string
   _cr720_mobilization_value?: string
+  _cr6cd_mobilization_value?: string
   _cr6cd_mobilizationsid_value?: string
   cr6cd_name?: string
   cr6cd_newcolumn?: string
@@ -407,7 +436,11 @@ export function toTradeItem(dv: DvTradeItem): TradeItem {
 export function toMobilizationMarker(dv: DvMobilizationMarker): MobilizationMarker {
   return {
     id: dv.cr6cd_mobilizationmarkersid,
-    mobilizationId: firstDefined(dv._cr720_mobilization_value, dv._cr6cd_mobilizationsid_value) ?? '',
+    mobilizationId: firstDefined(
+      dv._cr720_mobilization_value,
+      dv._cr6cd_mobilization_value,
+      dv._cr6cd_mobilizationsid_value,
+    ) ?? '',
     label: firstDefined(dv.cr6cd_newcolumn, dv.cr6cd_name) ?? '',
     notes: firstDefined(dv.cr720_notes, dv.cr6cd_notes),
     position: firstDefined(dv.cr6cd_position, dv.rlh_position) ?? 0.5,
