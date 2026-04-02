@@ -9,13 +9,28 @@ interface ProjectTabsProps {
   projectId: string
 }
 
+const PRIMARY_GROUP_BY_PATH = PROJECT_ROUTE_GROUPS.reduce<Map<string, string>>((map, group) => {
+  for (const tab of group.tabs) {
+    if (!map.has(tab.path)) {
+      map.set(tab.path, group.label)
+    }
+  }
+  return map
+}, new Map())
+
 export function ProjectTabs({ projectId }: ProjectTabsProps) {
   const pathname = usePathname()
 
-  // Auto-expand any group that contains the current active tab
+  // Bridge routes may appear in multiple groups, but only the first owner auto-expands as active.
   const autoExpanded = new Set(
     PROJECT_ROUTE_GROUPS
-      .filter(group => group.tabs.some(tab => pathname === projectHref(projectId, tab.path)))
+      .filter(group =>
+        group.tabs.some(
+          tab =>
+            pathname === projectHref(projectId, tab.path) &&
+            PRIMARY_GROUP_BY_PATH.get(tab.path) === group.label
+        )
+      )
       .map(group => group.label)
   )
 
@@ -49,7 +64,7 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
         gap: '2px',
       }}
     >
-      {/* Collapsible groups: Development, Execution */}
+      {/* Collapsible route groups */}
       {PROJECT_ROUTE_GROUPS.map((group) => {
         const isExpanded = expanded.has(group.label)
 
@@ -108,7 +123,8 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
               }}>
                 {group.tabs.map((tab) => {
                   const href = projectHref(projectId, tab.path)
-                  const isActive = pathname === href
+                  const isActive =
+                    pathname === href && PRIMARY_GROUP_BY_PATH.get(tab.path) === group.label
                   return (
                     <Link
                       key={tab.path}

@@ -40,6 +40,8 @@ Important boundary:
 - `/projects/[id]/estimate`, `/communication`, `/change-orders` — placeholder or scaffolded
 - `/leads`, `/contacts`, `/files`, `/messages` — top-level reference or utility views
 
+In the current sidebar IA, `Project Scope` is intentionally surfaced as a bridge between Development and Preparation rather than being treated as a pure execution surface.
+
 ---
 
 ## Data Layer Rules

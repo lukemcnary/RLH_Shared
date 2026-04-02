@@ -26,7 +26,7 @@ file -> UI -> local app state
 
 It is:
 
-identity -> project setup -> scope details -> project scope -> cost items when needed -> bidding and execution -> project history and future guidance
+identity -> project setup -> scope details -> project scope -> preparation and cost items when needed -> bidding and execution -> project history and future guidance
 
 The app may normalize, enrich, and present that flow.
 
@@ -87,6 +87,8 @@ Key rule:
 
 Planning truth should not be collapsed too early into cost records or schedule records. Project scope exists so the planning model can be clear before the financial model is fully formed.
 
+Project scope should also remain the canonical bridge record as the work moves into preparation. Preparation surfaces may become more trade-assigned, coordination-ready, or sequencing-aware, but they should still tie back to the same project-scope item instead of replacing it with disconnected copies.
+
 ---
 
 ## Flow Layer 3: Financialization And Bidding
@@ -122,13 +124,14 @@ Execution carries structured project intent into the field.
 The flow is:
 
 project scope
+-> preparation surfaces where needed
 -> action items created from project scope or directly
 -> mobilizations with explicit gate classification
 -> field updates, issues, and follow-up work
 
 Source-of-truth records include:
 
-- project scope for work continuity into execution
+- project scope for work continuity into preparation and execution
 - action items for scheduled work, coordination, and checkpoints
 - mobilizations for grouping action items into time-bound trade visits with explicit gate classification
 

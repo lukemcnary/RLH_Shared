@@ -20,17 +20,20 @@ The best mental model is:
 - `Cost Item` becomes the financial control center once created
 - mobilizations carry explicit gate classification for project time slices
 - the system is defined more by **correct links** than by one dominant parent table beyond the project itself
-- Development, Execution, and Admin are useful UI groupings, not parent data layers
+- Development, Preparation, Execution, and Financial are useful UI groupings, not parent data layers
 
 ---
 
 ## Visual Groupings, One Project Model
 
-The app still groups routes visually as Development, Execution, and Admin, but those are navigation labels only.
+The app still groups routes visually as Development, Preparation, Execution, and Financial, but those are navigation labels only.
 
-- Development groups planning and commercial surfaces such as scope, bidding, selections, and optional cost control.
+- Development groups scope-shaping and commercial surfaces such as estimate thinking, canonical project scope, and bidding.
+- Preparation groups the bridge surfaces that carry canonical scope into trade coordination, expectations, and sequencing-ready prep.
 - Execution groups delivery surfaces such as sequencer and field action items.
-- Admin groups supporting project records such as files, change orders, RFIs, and scoped knowledge.
+- Financial groups budget, cost items, and change-tracking surfaces tied to the same project model.
+
+`Project Scope` is intentionally allowed to bridge Development and Preparation in the current app IA because the same canonical scope item needs to survive both phases.
 
 Those groupings help people navigate, but the data model stays flat under the project. Records remain peers linked together correctly instead of living "inside" a section.
 
@@ -489,7 +492,7 @@ Current important routes:
 - `/projects/[id]/tasks`
 - `/projects/[id]/files`
 
-The sidebar may still render Development, Execution, and Admin groups, but those labels do not own the routes underneath them. Scope items may be created from planning workflows even if their main review surface sits under the Execution group label in the sidebar.
+The sidebar may still render Development, Preparation, Execution, and Financial groups, but those labels do not own the routes underneath them. `Project Scope` may appear as a bridge surface across Development and Preparation because the same canonical scope item needs to survive both phases.
 
 ---
 

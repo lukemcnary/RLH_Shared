@@ -188,7 +188,8 @@ Do not reintroduce the old grouped-route mental model as if it were still author
 Current intended model:
 
 - project routes are flat peers under `/projects/[id]/...`
-- Development, Execution, and Admin are sidebar groupings only
+- Development, Preparation, Execution, and Financial are sidebar groupings only
+- `Project Scope` may intentionally bridge Development and Preparation in the sidebar
 - files are project-level at `/projects/[id]/files`
 - the shared app is not connected to Trevor's app
 

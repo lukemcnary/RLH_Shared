@@ -28,7 +28,7 @@ The normal project rhythm is:
 project setup
 -> scope details
 -> project scope
--> cost items when pricing is needed
+-> preparation and cost items when pricing is needed
 -> bidding and assignment
 -> execution through gates, mobilizations, and action items
 -> project context through files, expectations, and issue trails
@@ -54,9 +54,22 @@ Current rules:
 - Scope details are atomic facts captured from plans and specifications.
 - Project-scope items turn those facts into trade-ready work descriptions.
 - Project scope is the planning center of the shared product.
+- Project scope is the canonical bridge record from development into preparation and execution.
 - Project-scope items may exist before cost items are created.
+- Preparation surfaces may create more coordination-ready or sequencing-ready views of the work, but those views should still link back to the same project-scope item.
 - Project-scope items should split into trade-specific ownership when responsibility matters.
 - Project scope should stay linked as work moves into bidding, scope-item creation, and field coordination.
+
+---
+
+## Preparation
+
+Current rules:
+
+- Preparation is the coordination layer between shaping the work and actively executing it in the field.
+- Preparation should make scope trade-ready, assigned, expectations-aware, and sequencing-ready without replacing the canonical project-scope record.
+- Expectations, trade coordination, and future prep-specific records belong in this layer.
+- Preparation records may become more operational than the original scope item, but they should still tie back to that scope item so the project keeps one coherent thread of intent.
 
 ---
 

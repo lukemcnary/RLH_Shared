@@ -16,11 +16,16 @@ It is built for the way custom-home builders actually think about projects:
 - keep execution structure explicit instead of burying it in app assumptions
 - make project information structured enough to be priced, coordinated, queried, and trusted
 
-The shared product is organized with three **visual project groupings**:
+The checked-in app currently uses four **visual project groupings** plus project-wide direct links:
 
-- **Development** — scope details, project scope, selections, bidding, and optional cost items
-- **Execution** — gate-classified mobilizations and field action items created from project scope or directly
-- **Admin** — files, changes, questions, expectations, and scoped knowledge
+- **Development** — shape the work through scope details, canonical project scope, early estimate thinking, and bidding/commercial packaging
+- **Preparation** — carry that same scope into trade coordination, expectations, and sequencing-ready preparation
+- **Execution** — coordinate field work through sequencer and action-item surfaces
+- **Financial** — review budget, cost items, and change-tracking surfaces tied to the same project truth
+
+`Project Scope` is intentionally surfaced as a bridge workspace between Development and Preparation.
+
+The canonical `ScopeItem` remains the parent record. Development, preparation, and execution may eventually carry different working versions or linked records around that scope, but they should all tie back to the same underlying project-scope item instead of creating disconnected truths.
 
 Those are navigation groupings, not ownership layers. Under the hood, project records remain peers linked under the project container.
 
@@ -79,7 +84,7 @@ The combined product is built around these non-negotiable platform boundaries:
 4. **The shared app is a peer on Dataverse, not a wrapper around Trevor's current app.**
 5. **The shared model may redesign Trevor's current table usage where it improves the long-term product.**
 6. **Next.js and React are the long-term implementation vehicle.** The product needs a codebase that supports richer UI quality, reusable components, server-side enforcement, and shared ownership across many product surfaces.
-7. **Development, execution, and admin stay as UI groupings only.** They help navigation, but project records stay flat peers under the project.
+7. **Development, preparation, execution, and financial views stay as UI groupings only.** They help navigation, but project records stay flat peers under the project.
 
 ---
 

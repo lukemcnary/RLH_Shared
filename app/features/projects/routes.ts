@@ -15,17 +15,22 @@ export const PROJECT_ROUTE_GROUPS: ProjectRouteGroup[] = [
     label: 'Development',
     tabs: [
       { label: 'Estimate', path: 'estimate', description: 'Early-stage project estimate with cost code rollups and allowances.' },
-      { label: 'Project Scope', path: 'scope-items', description: 'Trade-ready project-scope statements built from project details.' },
+      { label: 'Project Scope', path: 'scope-items', description: 'Canonical project-scope items shaped from project details before pricing or prep.' },
       { label: 'Bid Packages', path: 'bid-packages', description: 'Commercial packaging and quote tracking for assigned work.' },
+    ],
+  },
+  {
+    label: 'Preparation',
+    tabs: [
+      { label: 'Project Scope', path: 'scope-items', description: 'Bridge workspace where canonical scope is carried into trade coordination, expectations, and sequencing prep.' },
+      { label: 'Trades', path: 'trades', description: 'Trade-focused preparation workspace grouped by gate and mobilization.' },
       { label: 'Expectations', path: 'expectations', description: 'Project-specific expectations derived from the shared library and trade context.' },
     ],
   },
   {
     label: 'Execution',
     tabs: [
-      { label: 'Project Scope', path: 'scope-items', description: 'Trade-ready project-scope statements built from project details.' },
       { label: 'Sequencer', path: 'sequencer', description: 'Gate and mobilization sequencing for planned and active field work.' },
-      { label: 'Trades', path: 'trades', description: 'Trade-focused execution workspace grouped by gate and mobilization.' },
       { label: 'Action Items', path: 'tasks', description: 'Project action items and checkpoints for field execution.' },
     ],
   },

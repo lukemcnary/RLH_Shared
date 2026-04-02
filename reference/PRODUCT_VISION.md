@@ -41,6 +41,7 @@ The best way to think about the shared product is:
 
 - **Project** is the container.
 - **Project scope** is the planning and work-continuity center.
+- **Project scope** is also the canonical bridge record from development into preparation and later execution.
 - **Cost items** become the financial control center once created.
 - **Gate classification** provides the high-level execution structure on mobilizations.
 - **Mobilizations** and **action items** carry active field coordination through the job.
@@ -54,6 +55,12 @@ That split matches the real work:
 - builders do not need a fully priced cost structure the moment they first understand scope
 - field execution should not wait for every planning surface to become a financial record
 - the same project intent should survive from planning into execution without being rebuilt in a different model
+
+That is also why the shared product needs a real **preparation** layer.
+
+The team needs a place where canonical project-scope items can be turned into assigned, coordination-ready, expectations-aware, sequencing-ready work without pretending that preparation is the same thing as either raw scope capture or active field execution.
+
+Development, preparation, and execution may each show different working views or linked records around the work, but those views should still tie back to the same underlying project-scope item.
 
 ---
 

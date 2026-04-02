@@ -18,7 +18,7 @@ Important boundary:
 
 - Route: `/projects/[id]/sequencer`
 - Parent layout: `app/projects/[id]/layout.tsx`
-- Sidebar grouping: `Project`, `Development`, `Execution`, and `Admin`, rendered by `features/projects/project-tabs.tsx`
+- Sidebar grouping: `Project`, `Development`, `Preparation`, `Execution`, and `Financial`, rendered by `features/projects/project-tabs.tsx`
 - Related execution route: `/projects/[id]/tasks`
 
 The sequencer page is a thin server component. It calls `getSequencerPageData(id)` from `lib/dataverse/adapter.ts` and renders `features/sequencer/sequencer-board.tsx`.

@@ -19,7 +19,7 @@ The current source-of-truth docs describe a **scope-first product with explicit 
 - Trevor and Luke are intended to build **one shared app**
 - Development is **scope-first**
 - project scope is the **planning center**
-- project scope carries **work continuity across planning and execution**
+- project scope is the **canonical bridge from development into preparation and execution**
 - cost items become the **financial control center once created**
 - action items are the **execution records grouped into mobilizations**
 - major product records stay **flat peers under the project**
@@ -36,6 +36,7 @@ The checked-in app under `app/` currently includes:
 
 - a project list, project-level sidebar layout, and project home dashboard
 - implemented peer project routes for budget, cost items, project scope, bid packages, sequencer, action items, expectations, and files
+- a current sidebar model that separates Development, Preparation, Execution, and Financial views, with `Project Scope` intentionally surfaced as the bridge between Development and Preparation
 - an implemented project-level files hub that browses SharePoint libraries and registers optional Dataverse file metadata
 - placeholder or scaffolded peer project routes for estimate, communication, and change orders
 - a Dataverse adapter layer with `mock` mode as the default and `live` mode behind Azure credentials

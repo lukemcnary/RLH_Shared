@@ -16,16 +16,17 @@ This document describes the system at the **domain level**. It defines what the 
 
 The system is built around a **scope-first, project-centered construction model with explicit execution classification**.
 
-Development, Execution, and Admin are useful ways to group project work in the UI, but they are not separate data layers:
+Development, Preparation, Execution, and Financial are useful ways to group project work in the UI, but they are not separate data layers:
 
-- planning/commercial work shapes the project through scope details, project scope, selections, bidding, and optional cost items
-- delivery work carries that same project intent into the field through action items created from project scope or directly, grouped into mobilizations and gates
-- admin work keeps files, changes, questions, and reference context tied to the same project container
+- development work shapes the project through scope details, canonical project scope, estimate thinking, and bidding/commercial packaging
+- preparation work carries that same scope into trade coordination, expectations, and sequencing-ready prep
+- execution work carries that same project intent into the field through action items, mobilizations, and gates
+- financial work keeps budget, cost items, and change-tracking tied to the same project container
 
 The best way to think about the shared model is:
 
 - **Project** is the container
-- scope details, project scope, cost items, selections, bid packages, quotes, action items, mobilizations, and admin records are **first-class project records**
+- scope details, project scope, cost items, selections, bid packages, quotes, action items, mobilizations, and supporting project records are **first-class project records**
 - **project scope** is the planning and work-continuity center
 - **cost items** become the financial control center once created
 - those records should be **linked correctly**, but they should not all be forced through one mandatory workflow path
@@ -52,7 +53,7 @@ Some links are intentionally optional and workflow-driven:
 
 This flatter structure is intentional.
 
-The model should not force every object to inherit its meaning through one stricter execution hierarchy. A project contains many important kinds of records, and those records often need to relate across planning, commercial, execution, and admin concerns at the same time.
+The model should not force every object to inherit its meaning through one stricter execution hierarchy. A project contains many important kinds of records, and those records often need to relate across development, preparation, execution, financial, and supporting concerns at the same time.
 
 **Gates** are a high-level execution classification used on mobilizations. A gate represents a major time-based phase of work and helps organize project timing and sequencing. Gate changes should stay explicit in backend workflows rather than being guessed by AI or app-local logic.
 
