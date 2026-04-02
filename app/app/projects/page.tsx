@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { getProjects } from '@/lib/dataverse/adapter'
 import { ProjectsView } from '@/features/projects/projects-view'
 

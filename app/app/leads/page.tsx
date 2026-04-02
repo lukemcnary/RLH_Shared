@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { getLeads } from '@/lib/dataverse/adapter'
 import { LeadsBoard } from '@/features/leads/leads-board'
 
