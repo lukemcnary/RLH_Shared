@@ -237,20 +237,22 @@ export async function getSequencerData(projectId: string): Promise<SequencerData
       gates: m.MOCK_GATES.filter(g => g.projectId === projectId),
       projectTrades: m.MOCK_PROJECT_TRADES.filter(pt => pt.projectId === projectId),
       mobilizations: m.MOCK_MOBILIZATIONS.filter(mob => mob.projectId === projectId),
+      tradeTypes: m.MOCK_TRADE_TYPES,
     }
   }
   const q = await live()
-  const [project, gates, projectTrades] = await Promise.all([
+  const [project, gates, projectTrades, tradeTypes] = await Promise.all([
     q.projects.getProject(projectId),
     q.gates.getGates(projectId),
     q.projectTrades.getProjectTrades(projectId),
+    q.tradeTypes.getTradeTypes(),
   ])
   if (!project) return null
   const mobilizations = await q.mobilizations.getMobilizations(
     projectId,
     new Map(projectTrades.map((projectTrade) => [projectTrade.id, projectTrade])),
   )
-  return { project, gates, projectTrades, mobilizations }
+  return { project, gates, projectTrades, mobilizations, tradeTypes }
 }
 
 export async function getSequencerPageData(projectId: string): Promise<{

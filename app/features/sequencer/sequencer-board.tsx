@@ -36,6 +36,7 @@ import { MobilizationModal } from './mobilization-modal'
 import { buildSequence } from './sequence-engine'
 import {
   createMobilization as createMobilizationAction,
+  createProjectTrade as createProjectTradeAction,
   deleteMobilization as deleteMobilizationAction,
   updateGate as updateGateAction,
   updateMobilization as updateMobilizationAction,
@@ -102,7 +103,7 @@ export function SequencerBoard({
   showModeTabs = true,
   pageTitle = 'Sequencer',
 }: SequencerBoardProps) {
-  const { project, gates, mobilizations: initialMobs, projectTrades } = data
+  const { project, gates, mobilizations: initialMobs, projectTrades, tradeTypes } = data
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
 
@@ -602,6 +603,13 @@ export function SequencerBoard({
     setEditingMob(newMob)
   }, [activeTradeId, getNextDisplayOrder, mobilizations, project.id, projectTrades])
 
+  const handleAddTrade = useCallback((tradeTypeId: string) => {
+    runMutation(
+      'Adding trade to project...',
+      () => createProjectTradeAction({ projectId: project.id, tradeTypeId }),
+    )
+  }, [project.id, runMutation])
+
   const transientMessage = errorMessage ?? statusMessage ?? (isPending ? 'Syncing changes...' : null)
 
   // ─────────────────────────────────────────────────────
@@ -758,6 +766,7 @@ export function SequencerBoard({
         ) : (
           <TradesView
             projectTrades={projectTrades}
+            tradeTypes={tradeTypes}
             gates={gates}
             activeTradeId={activeTradeId}
             tradeProjectionById={tradeProjectionById}
@@ -765,6 +774,7 @@ export function SequencerBoard({
             startDate={startDate}
             rawMobilizationById={rawMobilizationById}
             onTradeSelect={setActiveTradeId}
+            onAddTrade={handleAddTrade}
             onAddMob={handleTradesAddMob}
             onMobClick={(mob) => setEditingMob(rawMobilizationById.get(mob.id) ?? mob)}
           />

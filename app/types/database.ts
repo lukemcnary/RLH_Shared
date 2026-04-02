@@ -800,6 +800,7 @@ export interface SequencerData {
   gates: Gate[]
   projectTrades: ProjectTrade[]
   mobilizations: Mobilization[]
+  tradeTypes: TradeType[]
 }
 
 /**
@@ -1028,6 +1029,10 @@ export interface CreateQuotePayload {
   notes?: string
 }
 
+export interface CreateProjectTradePayload {
+  projectId: string
+  tradeTypeId: string
+}
 
 // ─── 9. UI-only types (never persisted) ──────────────────────
 

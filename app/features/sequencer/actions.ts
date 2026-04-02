@@ -30,6 +30,7 @@ import { revalidatePath } from 'next/cache'
 import { dvFetch } from '@/lib/dataverse/client'
 import type {
   CreateMobilizationPayload,
+  CreateProjectTradePayload,
   MobilizationMarker,
   TradeItem,
   UpdateMobilizationPayload,
@@ -511,6 +512,59 @@ export async function updateGate(
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     console.error('[updateGate]', msg)
+    return { ok: false, error: msg }
+  }
+}
+
+
+// ─── Project trade mutations ──────────────────────────────────
+
+/**
+ * Add a trade type to a project by creating a project-trade junction row.
+ */
+export async function createProjectTrade(
+  payload: CreateProjectTradePayload
+): Promise<{ ok: boolean; id?: string; error?: string }> {
+  if (IS_MOCK) {
+    const mock = await loadMockData()
+    const tradeType = mock.MOCK_TRADE_TYPES.find(t => t.id === payload.tradeTypeId)
+    if (!tradeType) return { ok: false, error: 'Trade type not found' }
+
+    const id = `mock-pt-${Date.now()}`
+    mock.MOCK_PROJECT_TRADES.push({
+      id,
+      projectId: payload.projectId,
+      tradeTypeId: payload.tradeTypeId,
+      tradeType,
+      stage: 'planned',
+    })
+
+    revalidatePath(projectPath(payload.projectId))
+    revalidatePath(`/projects/${payload.projectId}/trades`)
+    return { ok: true, id }
+  }
+
+  try {
+    const body = {
+      'rlh_Project@odata.bind': `/cr6cd_projects(${payload.projectId})`,
+      'rlh_Trade@odata.bind': `/cr6cd_trades(${payload.tradeTypeId})`,
+      rlh_stage: 936880000, // Planned
+    }
+
+    const res = await dvFetch('rlh_projecttrades', {
+      method: 'POST',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify(body),
+    })
+
+    const id = getDataverseRecordIdFromHeader(res) ?? undefined
+
+    revalidatePath(projectPath(payload.projectId))
+    revalidatePath(`/projects/${payload.projectId}/trades`)
+    return { ok: true, id }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('[createProjectTrade]', msg)
     return { ok: false, error: msg }
   }
 }

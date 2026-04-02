@@ -2,10 +2,12 @@
 // Trades View — trade-focused mobilization workspace
 // -------------------------------------------------------
 
+import { useState, useRef, useEffect, useMemo } from 'react'
 import type {
   Gate,
   Mobilization,
   ProjectTrade,
+  TradeType,
   SequenceMobilizationProjection,
   SequenceTradeProjection,
 } from '@/types/database'
@@ -19,6 +21,7 @@ import {
 
 export interface TradesViewProps {
   projectTrades: ProjectTrade[]
+  tradeTypes: TradeType[]
   gates: Gate[]
   activeTradeId: string | null
   tradeProjectionById: Map<string, SequenceTradeProjection>
@@ -26,12 +29,14 @@ export interface TradesViewProps {
   startDate: string
   rawMobilizationById: Map<string, Mobilization>
   onTradeSelect: (tradeId: string | null) => void
+  onAddTrade: (tradeTypeId: string) => void
   onAddMob: (gateId: string) => void
   onMobClick: (mob: SequenceMobilizationProjection | Mobilization) => void
 }
 
 export default function TradesView({
   projectTrades,
+  tradeTypes,
   gates,
   activeTradeId,
   tradeProjectionById,
@@ -39,6 +44,7 @@ export default function TradesView({
   startDate,
   rawMobilizationById,
   onTradeSelect,
+  onAddTrade,
   onAddMob,
   onMobClick,
 }: TradesViewProps) {
@@ -46,9 +52,30 @@ export default function TradesView({
     ? projectTrades.find(pt => pt.id === activeTradeId) ?? null
     : null
 
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // Trade types not already on the project
+  const availableTradeTypes = useMemo(() => {
+    const usedIds = new Set(projectTrades.map(pt => pt.tradeType.id))
+    return tradeTypes.filter(tt => !usedIds.has(tt.id))
+  }, [projectTrades, tradeTypes])
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!dropdownOpen) return
+    function handleClick(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [dropdownOpen])
+
   return (
     <div style={{ flex: 1, overflow: 'auto', background: 'var(--background)', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ margin: 16, ...elevatedCard, overflow: 'hidden', display: 'flex', flexDirection: 'column', flex: 1 }}>
+      <div style={{ margin: 16, ...elevatedCard, overflow: 'visible', display: 'flex', flexDirection: 'column', flex: 1 }}>
         {/* Panel header */}
         <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-light)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
           <div>
@@ -59,8 +86,59 @@ export default function TradesView({
               Focused coordination workspace for trade-ready decisions and marker notes.
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button style={smallSecondaryBtn}>Add Trade</button>
+          <div style={{ display: 'flex', gap: 8, position: 'relative' }} ref={dropdownRef}>
+            <button
+              style={smallSecondaryBtn}
+              onClick={() => setDropdownOpen(prev => !prev)}
+              disabled={availableTradeTypes.length === 0}
+            >
+              Add Trade
+            </button>
+            {dropdownOpen && availableTradeTypes.length > 0 && (
+              <div style={{
+                position: 'absolute',
+                top: '100%',
+                right: 0,
+                marginTop: 4,
+                background: 'var(--surface-elevated)',
+                border: '1px solid var(--border)',
+                borderRadius: 6,
+                boxShadow: 'var(--shadow-float)',
+                zIndex: 20,
+                minWidth: 200,
+                maxHeight: 280,
+                overflowY: 'auto',
+                padding: '4px 0',
+              }}>
+                {availableTradeTypes.map(tt => (
+                  <button
+                    key={tt.id}
+                    onClick={() => {
+                      onAddTrade(tt.id)
+                      setDropdownOpen(false)
+                    }}
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      textAlign: 'left',
+                      padding: '8px 12px',
+                      fontSize: 13,
+                      color: 'var(--text-primary)',
+                      background: 'transparent',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
+                      transition: 'background 100ms ease',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent-light)' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                  >
+                    {tt.name}
+                    {tt.code ? <span style={{ marginLeft: 6, fontSize: 11, color: 'var(--text-tertiary)' }}>{tt.code}</span> : null}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

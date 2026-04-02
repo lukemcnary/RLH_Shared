@@ -489,6 +489,7 @@ export const MOCK_SEQUENCER_DATA: SequencerData = {
   gates: MOCK_GATES.filter((gate) => gate.projectId === PRIMARY_PROJECT_ID),
   projectTrades: MOCK_PROJECT_TRADES.filter((projectTrade) => projectTrade.projectId === PRIMARY_PROJECT_ID),
   mobilizations: MOCK_MOBILIZATIONS.filter((mobilization) => mobilization.projectId === PRIMARY_PROJECT_ID),
+  tradeTypes: MOCK_TRADE_TYPES,
 }
 
 // ── Helpers ──────────────────────────────────────────────────
