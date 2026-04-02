@@ -313,36 +313,36 @@ export async function getProjectExecutionData(projectId: string): Promise<Projec
 }
 
 // ── Cost Items ────────────────────────────────────────────────
+// Table rlh_costitem does not exist in Dataverse yet.
 
 export async function getCostItems(projectId: string): Promise<CostItem[]> {
   if (IS_MOCK) {
     const m = await mock()
     return m.MOCK_COST_ITEMS.filter(ci => ci.projectId === projectId)
   }
-  const q = await live()
-  return q.costItems.getCostItems(projectId)
+  return [] // rlh_costitem table not yet provisioned
 }
 
 // ── Cost Codes ────────────────────────────────────────────────
+// Table rlh_costcode does not exist in Dataverse yet.
 
 export async function getCostCodes(): Promise<CostCode[]> {
   if (IS_MOCK) {
     const m = await mock()
     return m.MOCK_COST_CODES
   }
-  const q = await live()
-  return q.costCodes.getCostCodes()
+  return [] // rlh_costcode table not yet provisioned
 }
 
 // ── Project Scope ─────────────────────────────────────────────
+// Table rlh_scopeitem does not exist in Dataverse yet.
 
 export async function getScopeItems(projectId: string): Promise<ScopeItem[]> {
   if (IS_MOCK) {
     const m = await mock()
     return m.MOCK_SCOPE_ITEMS.filter(si => si.projectId === projectId)
   }
-  const q = await live()
-  return q.scopeItems.getScopeItems(projectId)
+  return [] // rlh_scopeitem table not yet provisioned
 }
 
 export async function createScopeItem(data: { projectId: string; name: string; description?: string; tradeTypeId?: string; status?: string }): Promise<ScopeItem> {
@@ -366,57 +366,57 @@ export async function createScopeItem(data: { projectId: string; name: string; d
 
 // ── Scope Details ─────────────────────────────────────────────
 
+// Table rlh_scopedetail does not exist in Dataverse yet.
 export async function getScopeDetails(projectId: string): Promise<ScopeDetail[]> {
   if (IS_MOCK) {
     const m = await mock()
     return m.MOCK_SCOPE_DETAILS.filter(sd => sd.projectId === projectId)
   }
-  const q = await live()
-  return q.scopeDetails.getScopeDetails(projectId)
+  return [] // rlh_scopedetail table not yet provisioned
 }
 
 // ── Selections ────────────────────────────────────────────────
+// Table rlh_selection does not exist in Dataverse yet.
 
 export async function getSelections(projectId: string): Promise<Selection[]> {
   if (IS_MOCK) {
     const m = await mock()
     return m.MOCK_SELECTIONS.filter(sel => sel.projectId === projectId)
   }
-  const q = await live()
-  return q.selections.getSelections(projectId)
+  return [] // rlh_selection table not yet provisioned
 }
 
 // ── Bid Packages ──────────────────────────────────────────────
+// Table rlh_bidpackage does not exist in Dataverse yet.
 
 export async function getBidPackages(projectId: string): Promise<BidPackage[]> {
   if (IS_MOCK) {
     const m = await mock()
     return m.MOCK_BID_PACKAGES.filter(bp => bp.projectId === projectId)
   }
-  const q = await live()
-  return q.bidPackages.getBidPackages(projectId)
+  return [] // rlh_bidpackage table not yet provisioned
 }
 
 // ── Action Items (`rlh_tasks`) ────────────────────────────────
+// Table rlh_task does not exist in Dataverse yet.
 
 export async function getTasks(projectId: string): Promise<Task[]> {
   if (IS_MOCK) {
     const m = await mock()
     return m.MOCK_TASKS.filter(t => t.projectId === projectId)
   }
-  const q = await live()
-  return q.tasks.getTasks(projectId)
+  return [] // rlh_task table not yet provisioned
 }
 
 // ── Expectations ──────────────────────────────────────────────
+// Table rlh_expectation does not exist in Dataverse yet.
 
 export async function getExpectations(): Promise<Expectation[]> {
   if (IS_MOCK) {
     const m = await mock()
     return m.MOCK_EXPECTATIONS
   }
-  const q = await live()
-  return q.expectations.getExpectations()
+  return [] // rlh_expectation table not yet provisioned
 }
 
 export async function createProjectExpectation(projectId: string, data: { description: string; category: ExpectationCategory; tradeTypeId?: string }): Promise<void> {
@@ -445,16 +445,17 @@ export async function createProjectExpectation(projectId: string, data: { descri
   }
 }
 
+// Table rlh_projectexpectation does not exist in Dataverse yet.
 export async function getProjectExpectations(projectId: string): Promise<ProjectExpectation[]> {
   if (IS_MOCK) {
     const m = await mock()
     return m.MOCK_PROJECT_EXPECTATIONS.filter(pe => pe.projectId === projectId)
   }
-  const q = await live()
-  return q.expectations.getProjectExpectations(projectId)
+  return [] // rlh_projectexpectation table not yet provisioned
 }
 
 // ── File references ──────────────────────────────────────────
+// Table rlh_file does not exist in Dataverse yet.
 
 export async function getProjectFileReferences(projectId: string): Promise<ProjectFile[]> {
   if (IS_MOCK) {
@@ -463,8 +464,7 @@ export async function getProjectFileReferences(projectId: string): Promise<Proje
       (file) => file.projectId === projectId && file.registrationState === 'registered'
     )
   }
-  const q = await live()
-  return q.files.getProjectFileReferences(projectId)
+  return [] // rlh_file table not yet provisioned
 }
 
 // ── Companies ────────────────────────────────────────────────

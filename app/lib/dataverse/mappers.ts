@@ -248,11 +248,16 @@ export interface DvProject {
   cr6cd_projectid: string
   cr6cd_name?: string
   cr6cd_projectname?: string
+  cr6cd_location?: string
   rlh_address?: string
   cr6cd_startdate?: string
   cr6cd_completiondate?: string
   cr6cd_enddate?: string
+  cr6cd_status?: number
   rlh_status?: number
+  cr6cd_description?: string
+  cr6cd_gatedeclarationsjson?: string
+  cr6cd_holidaysjson?: string
   _rlh_client_value?: string
   rlh_sharepointsiteurl?: string
   rlh_sharepointsiteid?: string
@@ -260,14 +265,29 @@ export interface DvProject {
   modifiedon?: string
 }
 
+// cr6cd_status uses a different picklist range than the rlh_status the schema
+// plan originally assumed.  Real observed values: 3 = "Under Construction".
+const CR6CD_PROJECT_STATUS_MAP: Record<number, ProjectStatus> = {
+  1: 'planning',
+  2: 'planning',
+  3: 'active',      // "Under Construction"
+  4: 'complete',
+  5: 'on_hold',
+}
+
 export function toProject(dv: DvProject): Project {
+  const statusCode = dv.cr6cd_status ?? dv.rlh_status
+  const status = statusCode !== undefined
+    ? (CR6CD_PROJECT_STATUS_MAP[statusCode] ?? PROJECT_STATUS_MAP[statusCode] ?? 'active')
+    : 'active'
+
   return {
     id: dv.cr6cd_projectid,
-    name: firstDefined(dv.cr6cd_name, dv.cr6cd_projectname) ?? '(unnamed project)',
-    address: dv.rlh_address,
+    name: firstDefined(dv.cr6cd_projectname, dv.cr6cd_name) ?? '(unnamed project)',
+    address: firstDefined(dv.cr6cd_location, dv.rlh_address),
     startDate: dateOnly(dv.cr6cd_startdate),
-    completionDate: dateOnly(firstDefined(dv.cr6cd_completiondate, dv.cr6cd_enddate)),
-    status: PROJECT_STATUS_MAP[dv.rlh_status ?? 936880001] ?? 'active',
+    completionDate: dateOnly(firstDefined(dv.cr6cd_enddate, dv.cr6cd_completiondate)),
+    status,
     clientId: dv._rlh_client_value,
     sharePointSiteUrl: dv.rlh_sharepointsiteurl,
     sharePointSiteId: dv.rlh_sharepointsiteid,
@@ -285,7 +305,7 @@ export interface DvTrade {
 }
 
 export function toTradeType(dv: DvTrade): TradeType {
-  const name = firstDefined(dv.cr6cd_name, dv.cr6cd_tradename) ?? '(unnamed trade)'
+  const name = firstDefined(dv.cr6cd_tradename, dv.cr6cd_name) ?? '(unnamed trade)'
   return {
     id: dv.cr6cd_tradeid,
     name,
@@ -296,8 +316,10 @@ export function toTradeType(dv: DvTrade): TradeType {
 
 export interface DvBuildPhase {
   cr6cd_buildphaseid: string
-  cr6cd_name: string
+  cr6cd_name?: string
+  cr6cd_buildphasename?: string
   cr6cd_sortorder?: number
+  cr6cd_sequenceorder?: number
   cr6cd_description?: string
   rlh_lockstatus?: number
   rlh_workingwindowstart?: string
@@ -312,8 +334,8 @@ export function toGate(dv: DvBuildPhase): Gate {
   return {
     id: dv.cr6cd_buildphaseid,
     projectId: firstDefined(dv._cr6cd_projectid_value, dv._rlh_project_value) ?? '',
-    name: dv.cr6cd_name,
-    order: dv.cr6cd_sortorder ?? 0,
+    name: firstDefined(dv.cr6cd_buildphasename, dv.cr6cd_name) ?? '(unnamed gate)',
+    order: firstDefined(dv.cr6cd_sequenceorder, dv.cr6cd_sortorder) ?? 0,
     description: dv.cr6cd_description,
     lockStatus: GATE_LOCK_MAP[dv.rlh_lockstatus ?? 936880000] ?? 'unlocked',
     workingWindowStart: dateOnly(dv.rlh_workingwindowstart),
@@ -391,7 +413,9 @@ export interface DvTradeItem {
   rlh_name?: string
   rlh_text?: string
   rlh_newcolumn?: string
+  rlh_answer?: string
   rlh_notes?: string
+  rlh_externalid?: string
   rlh_sortorder?: number
   rlh_type?: string | number
   rlh_status?: string | number
@@ -426,7 +450,7 @@ export function toTradeItem(dv: DvTradeItem): TradeItem {
     id: dv.rlh_tradeitemid,
     mobilizationId: firstDefined(dv._rlh_mobilization_value, dv._cr6cd_mobilizationsid_value) ?? '',
     name: firstDefined(dv.rlh_name, dv.rlh_text, dv.rlh_newcolumn) ?? '',
-    notes: dv.rlh_notes,
+    notes: firstDefined(dv.rlh_notes, dv.rlh_answer),
     type: normalizeTradeItemType(dv.rlh_type),
     status: normalizeTradeItemStatus(dv.rlh_status),
     sortOrder: dv.rlh_sortorder ?? 0,

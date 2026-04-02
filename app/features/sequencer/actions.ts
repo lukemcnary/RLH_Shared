@@ -78,7 +78,7 @@ function getDataverseRecordIdFromHeader(response: Response) {
 
 function mobilizationFilter(mobilizationId: string, fields: string[]) {
   return fields
-    .map((field) => `${field} eq guid'${mobilizationId}'`)
+    .map((field) => `${field} eq '${mobilizationId}'`)
     .join(' or ')
 }
 

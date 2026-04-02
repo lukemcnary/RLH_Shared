@@ -28,7 +28,7 @@ import {
 
 function buildLookupFilter(ids: string[], fields: string[]) {
   return ids
-    .flatMap((id) => fields.map((field) => `${field} eq guid'${id}'`))
+    .flatMap((id) => fields.map((field) => `${field} eq '${id}'`))
     .join(' or ')
 }
 
@@ -49,7 +49,7 @@ export async function getMobilizations(
   projectTradesById: Map<string, ProjectTrade> = new Map(),
 ): Promise<Mobilization[]> {
   const mobRes = await dvGet<{ value: DvMobilization[] }>(
-    `cr6cd_mobilizations?$select=cr6cd_mobilizationid,cr6cd_durationdays,cr6cd_basedurationdays,cr6cd_startoffset,cr6cd_notes,cr6cd_why,cr6cd_stepsjson,cr6cd_markersjson,cr6cd_relocatedscopejson,cr6cd_displayorder,cr6cd_newcolumn,_cr6cd_trade_value,_cr6cd_projecttrade_value,_cr6cd_project_value,_cr6cd_buildphase_value&$filter=_cr6cd_project_value eq guid'${projectId}'&$orderby=cr6cd_startoffset`
+    `cr6cd_mobilizations?$select=cr6cd_mobilizationid,cr6cd_durationdays,cr6cd_basedurationdays,cr6cd_startoffset,cr6cd_notes,cr6cd_why,cr6cd_stepsjson,cr6cd_markersjson,cr6cd_displayorder,cr6cd_newcolumn,_cr6cd_trade_value,_cr6cd_projecttrade_value,_cr6cd_project_value,_cr6cd_buildphase_value&$filter=_cr6cd_project_value eq '${projectId}'&$orderby=cr6cd_startoffset`
   )
 
   const mobilizationIds = mobRes.value
@@ -73,10 +73,10 @@ export async function getMobilizations(
 
       const [tradeItemRes, markerRes] = await Promise.all([
         dvGet<{ value: DvTradeItem[] }>(
-          `rlh_tradeitems?$select=rlh_tradeitemid,_rlh_mobilization_value,_cr6cd_mobilizationsid_value,rlh_name,rlh_text,rlh_newcolumn,rlh_notes,rlh_sortorder,rlh_type,rlh_status&$filter=${tradeItemFilter}&$orderby=rlh_sortorder`
+          `rlh_tradeitems?$select=rlh_tradeitemid,_rlh_mobilization_value,rlh_text,rlh_newcolumn,rlh_answer,rlh_externalid,rlh_type,rlh_status&$filter=${tradeItemFilter}`
         ),
         dvGet<{ value: DvMobilizationMarker[] }>(
-          `cr6cd_mobilizationmarkerses?$select=cr6cd_mobilizationmarkersid,_cr720_mobilization_value,_cr6cd_mobilizationsid_value,cr6cd_name,cr6cd_newcolumn,cr720_notes,cr6cd_notes,cr6cd_position,rlh_position&$filter=${markerFilter}`
+          `cr6cd_mobilizationmarkerses?$select=cr6cd_mobilizationmarkersid,_cr720_mobilization_value,cr6cd_newcolumn,cr720_notes&$filter=${markerFilter}`
         ),
       ])
 

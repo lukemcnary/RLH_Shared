@@ -12,7 +12,7 @@ import { type DvProjectTrade, toProjectTrade } from '../mappers'
 export async function getProjectTrades(projectId: string): Promise<ProjectTrade[]> {
   const [res, tradeTypes] = await Promise.all([
     dvGet<{ value: DvProjectTrade[] }>(
-      `rlh_projecttrades?$select=rlh_projecttradeid,rlh_externalid,rlh_newcolumn,_rlh_project_value,_rlh_trade_value,rlh_stage&$filter=_rlh_project_value eq guid'${projectId}'`
+      `rlh_projecttrades?$select=rlh_projecttradeid,rlh_externalid,rlh_newcolumn,_rlh_project_value,_rlh_trade_value,rlh_stage&$filter=_rlh_project_value eq '${projectId}'`
     ),
     getTradeTypes(),
   ])
